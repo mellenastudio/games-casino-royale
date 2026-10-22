@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090909">
+  <meta name="description" content="CASINO ROYALE - 仮想コインで遊ぶオンラインカジノゲーム">
+  <title>CASINO ROYALE</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="topbar">
+    <a class="brand" href="#" onclick="go('home');return false;">
+      <span class="brand-crown">♛</span>
+      <span>
+        CASINO ROYALE
+        <small>YOUR NIGHT. YOUR FORTUNE.</small>
+      </span>
+    </a>
+    <div id="balance" class="balance">GUEST</div>
+  </div>
+
+  <nav id="nav" class="navigation">
+    <button class="navbtn active" data-page="home">LOBBY</button>
+    <button class="navbtn" data-page="roulette">ROULETTE</button>
+    <button class="navbtn" data-page="slots">SLOTS</button>
+    <button class="navbtn" data-page="ranking">RANKING</button>
+    <button class="navbtn" data-page="friends">FRIENDS</button>
+    <button class="navbtn" data-page="profile">PROFILE</button>
+    <button class="navbtn" data-page="account">ACCOUNT</button>
+  </nav>
+</header>
+
+<main class="main-container">
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+
+  <!-- LOBBY -->
+  <section id="page-home" class="page">
+    <div class="hero">
+      <div class="eyebrow">WELCOME TO THE ROYAL TABLE</div>
+      <h1>CASINO ROYALE</h1>
+      <p>運を試す。記録を残す。ランキングの頂点へ。</p>
+      <div class="actions">
+        <button class="btn" onclick="go('roulette')">ルーレットで遊ぶ</button>
+        <button class="btn secondary" onclick="go('slots')">スロットで遊ぶ</button>
+      </div>
+    </div>
+
+    <div class="grid stats-grid">
+      <div class="stat">
+        <small>YOUR BALANCE</small>
+        <strong id="homeCoins">---</strong>
+        <span class="muted">ROYAL COINS</span>
+      </div>
+      <div class="stat">
+        <small>TOTAL GAMES</small>
+        <strong id="homeGames">---</strong>
+        <span class="muted">プレイ回数</span>
+      </div>
+    </div>
+
+    <div class="section-heading">
+      <span class="eyebrow">CHOOSE YOUR DESTINY</span>
+      <h2>CHOOSE YOUR GAME</h2>
+    </div>
+
+    <div class="grid">
+      <article class="card game-card">
+        <div>
+          <div class="game-icon">🎡</div>
+          <h3>ROULETTE</h3>
+          <p>赤・黒・ゼロ。運命の数字を狙え。</p>
+        </div>
+        <button class="btn full" onclick="go('roulette')">PLAY ROULETTE</button>
+      </article>
+
+      <article class="card game-card">
+        <div>
+          <div class="game-icon">🎰</div>
+          <h3>ROYAL SLOTS</h3>
+          <p>絵柄を揃えて大当たりを狙おう。</p>
+        </div>
+        <button class="btn full" onclick="go('slots')">PLAY SLOTS</button>
+      </article>
+    </div>
+
+    <div class="card info-card">
+      <h3>ROYAL CLUB</h3>
+      <p>アカウントを作成して、戦績を記録し、フレンドとコインを交換しよう。</p>
+      <button class="btn secondary" onclick="go('account')">メンバー登録・ログイン</button>
+    </div>
+  </section>
+
+  <!-- ACCOUNT -->
+  <section id="page-account" class="page hidden">
+    <div class="card form-card">
+      <div class="eyebrow">MEMBER ACCESS</div>
+      <h2>ACCOUNT</h2>
+
+      <div class="tabs">
+        <button class="btn" onclick="accountMode('login')">ログイン</button>
+        <button class="btn secondary" onclick="accountMode('register')">新規登録</button>
+      </div>
+
+      <form id="accountForm">
+        <div class="field">
+          <label for="username">ユーザー名</label>
+          <input id="username" name="username" required minlength="3" maxlength="16"
+                 autocomplete="username" placeholder="3〜16文字">
+        </div>
+
+        <div class="field">
+          <label for="password">パスワード</label>
+          <input id="password" name="password" type="password" required
+                 minlength="8" maxlength="100" autocomplete="current-password"
+                 placeholder="8文字以上">
+        </div>
+
+        <button class="btn full" type="submit" id="accountSubmit">ログイン</button>
+      </form>
+
+      <p class="muted">新規登録で10,000枚のゲーム内コインを獲得できます。</p>
+      <button id="logoutButton" class="btn danger full hidden" onclick="logout()">ログアウト</button>
+    </div>
+  </section>
+
+  <!-- ROULETTE -->
+  <section id="page-roulette" class="page hidden">
+    <div class="card game-panel">
+      <div class="eyebrow">TABLE NO. 01</div>
+      <h2>🎡 ROULETTE</h2>
+
+      <div class="wheel" id="rouletteWheel">
+        <div class="wheel-center">
+          <span id="wheelResult">ROYAL</span>
+          <small id="wheelColor">ROULETTE</small>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="rouletteBet">賭けコイン（10〜10,000）</label>
+        <input id="rouletteBet" type="number" min="10" max="10000" step="10" value="100">
+      </div>
+
+      <div class="field">
+        <label for="rouletteChoice">賭け先</label>
+        <select id="rouletteChoice">
+          <option value="red">🔴 赤（配当2倍）</option>
+          <option value="black">⚫ 黒（配当2倍）</option>
+          <option value="green">🟢 ゼロ（配当36倍）</option>
+        </select>
+      </div>
+
+      <button class="btn full" id="rouletteButton" onclick="play('roulette')">
+        SPIN THE WHEEL
+      </button>
+
+      <div id="rouletteResult" class="result-panel" aria-live="polite"></div>
+      <p class="muted">ヨーロピアンルーレット形式。配当は賭け金を含む総返還額です。</p>
+    </div>
+  </section>
+
+  <!-- SLOTS -->
+  <section id="page-slots" class="page hidden">
+    <div class="card game-panel">
+      <div class="eyebrow">MACHINE NO. 777</div>
+      <h2>🎰 ROYAL SLOTS</h2>
+
+      <div class="reels">
+        <div class="reel" id="reel0">🍒</div>
+        <div class="reel" id="reel1">🔔</div>
+        <div class="reel" id="reel2">⭐</div>
+      </div>
+
+      <div class="field">
+        <label for="slotsBet">賭けコイン（10〜10,000）</label>
+        <input id="slotsBet" type="number" min="10" max="10000" step="10" value="100">
+      </div>
+
+      <button class="btn full" id="slotsButton" onclick="play('slots')">
+        SPIN SLOTS
+      </button>
+
+      <div id="slotsResult" class="result-panel" aria-live="polite"></div>
+      <p class="muted">3つ揃いは通常5倍・⭐は10倍・7️⃣は20倍。2つ揃いは2倍。</p>
+    </div>
+  </section>
+
+  <!-- RANKING -->
+  <section id="page-ranking" class="page hidden">
+    <div class="card">
+      <div class="eyebrow">THE BEST OF THE BEST</div>
+      <h2>🏆 LEADERBOARD</h2>
+
+      <div class="tabs ranking-tabs">
+        <button class="btn" onclick="loadRanking('wealth')">総資産</button>
+        <button class="btn secondary" onclick="loadRanking('weekly')">週間収支</button>
+        <button class="btn secondary" onclick="loadRanking('roulette')">ルーレット</button>
+        <button class="btn secondary" onclick="loadRanking('slots')">スロット</button>
+      </div>
+
+      <div id="rankingList">
+        <p class="muted">ランキングを読み込んでください。</p>
+      </div>
+      <button class="btn secondary full" onclick="loadRanking(currentRanking)">ランキングを更新</button>
+    </div>
+  </section>
+
+  <!-- FRIENDS -->
+  <section id="page-friends" class="page hidden">
+    <div class="card">
+      <div class="eyebrow">YOUR SOCIAL CLUB</div>
+      <h2>👥 FRIENDS</h2>
+
+      <div class="field">
+        <label for="friendQuery">ユーザー名で検索</label>
+        <input id="friendQuery" placeholder="ユーザー名を入力">
+      </div>
+      <button class="btn" onclick="searchFriends()">ユーザー検索</button>
+      <div id="friendSearchResults"></div>
+
+      <hr class="gold-divider">
+      <h3>届いたフレンド申請</h3>
+      <div id="incomingRequests"><p class="muted">読み込み待ち</p></div>
+
+      <hr class="gold-divider">
+      <h3>フレンド一覧</h3>
+      <div id="friendsList"><p class="muted">読み込み待ち</p></div>
+
+      <hr class="gold-divider">
+      <h3>コインを送る</h3>
+      <div class="field">
+        <label for="transferTarget">送付先フレンド</label>
+        <select id="transferTarget">
+          <option value="">フレンドを選択</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="transferAmount">送付コイン（最大50,000）</label>
+        <input id="transferAmount" type="number" min="1" max="50000" value="100">
+      </div>
+      <button class="btn full" onclick="transferCoins()">コインを送付</button>
+      <p class="muted">送付は承認済みフレンド間のみ可能です。送付後は取り消せません。</p>
+    </div>
+  </section>
+
+  <!-- PROFILE -->
+  <section id="page-profile" class="page hidden">
+    <div class="card">
+      <div class="eyebrow">YOUR ROYAL RECORD</div>
+      <h2>👑 PROFILE</h2>
+      <div id="profileInfo"><p class="muted">ログインするとプロフィールが表示されます。</p></div>
+      <hr class="gold-divider">
+      <h3>最近のプレイ履歴</h3>
+      <div id="historyList"><p class="muted">まだ履歴はありません。</p></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-brand">♛ CASINO ROYALE</div>
+  <p>YOUR NIGHT. YOUR FORTUNE.</p>
+  <small>VIRTUAL COINS ONLY · NO CASH VALUE</small>
+  <p>ゲーム内コインは換金・売買できません。</p>
+</footer>
+
+</body>
+</html>
