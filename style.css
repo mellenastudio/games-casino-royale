@@ -1274,3 +1274,286 @@ select:focus {
     flex: 1 1 calc(50% - 10px);
   }
 }
+
+
+/* ==========================================
+   CASINO ROYALE | SLOTS ANIMATION FIX
+========================================== */
+
+#page-slots .reels {
+  perspective: 700px;
+}
+
+#page-slots .reel {
+  position: relative;
+  overflow: hidden;
+  transform-origin: center;
+  will-change: transform, filter;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* 回転中：高速で上下に揺れ、光る */
+#page-slots .reel.slot-spinning,
+#page-slots .reel.spinning {
+  animation: royal-slot-spin 0.12s linear infinite;
+  filter: brightness(1.5);
+  border-color: #fff0b5;
+  box-shadow:
+    inset 0 0 25px rgba(233, 198, 107, 0.35),
+    0 0 20px rgba(233, 198, 107, 0.4);
+}
+
+/* 停止時：ピタッと止まる */
+#page-slots .reel.slot-stop,
+#page-slots .reel.reel-stopped {
+  animation: royal-slot-stop 0.3s cubic-bezier(.2, .8, .2, 1);
+  border-color: #fff0b5;
+  box-shadow:
+    inset 0 0 18px rgba(233, 198, 107, 0.15),
+    0 0 18px rgba(233, 198, 107, 0.45);
+}
+
+/* 当たり演出 */
+#page-slots .reel.slot-win {
+  animation: royal-slot-win 0.65s ease-in-out infinite alternate;
+  border-color: #ffe7a0;
+  box-shadow:
+    0 0 15px rgba(233, 198, 107, 0.65),
+    0 0 35px rgba(233, 198, 107, 0.3),
+    inset 0 0 20px rgba(233, 198, 107, 0.2);
+}
+
+@keyframes royal-slot-spin {
+  0% {
+    transform: translateY(-5px) rotateX(-8deg);
+  }
+  50% {
+    transform: translateY(5px) rotateX(8deg);
+  }
+  100% {
+    transform: translateY(-5px) rotateX(-8deg);
+  }
+}
+
+@keyframes royal-slot-stop {
+  0% {
+    transform: scale(1.12) translateY(-4px);
+  }
+  45% {
+    transform: scale(0.94) translateY(2px);
+  }
+  75% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes royal-slot-win {
+  from {
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+  to {
+    transform: translateY(-3px) scale(1.04);
+    filter: brightness(1.5);
+  }
+}
+
+/* 動きを減らす設定の利用者にはアニメーションを抑える */
+@media (prefers-reduced-motion: reduce) {
+  #page-slots .reel.slot-spinning,
+  #page-slots .reel.spinning,
+  #page-slots .reel.slot-win {
+    animation-duration: 0.5s;
+  }
+}
+
+/* ==========================================
+   CASINO ROYALE | RANKING UI FIX
+========================================== */
+
+#page-ranking > .card {
+  position: relative;
+  overflow: hidden;
+  padding: 30px;
+  border: 1px solid rgba(233, 198, 107, 0.6);
+  border-radius: 15px;
+  background:
+    radial-gradient(
+      ellipse at top right,
+      rgba(217, 180, 91, 0.12),
+      transparent 50%
+    ),
+    linear-gradient(145deg, #19160f, #101010 70%);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+}
+
+#page-ranking h2 {
+  color: #fff0b5;
+  letter-spacing: 1px;
+}
+
+/* ランキング切り替えタブ */
+#page-ranking .ranking-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(217, 180, 91, 0.25);
+}
+
+#page-ranking .ranking-tabs .btn {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 12px 15px;
+  color: #e7d7ae;
+  background: linear-gradient(145deg, #211b10, #111);
+  border: 1px solid #554321;
+  border-radius: 8px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* マウスを乗せたとき */
+#page-ranking .ranking-tabs .btn:hover {
+  color: #fff4c7;
+  border-color: #d9b45b;
+  background: linear-gradient(145deg, #3a2d17, #1b160d);
+}
+
+/* 選択中タブ */
+#page-ranking .ranking-tabs .btn.active {
+  color: #171006;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff0b5, #d9b45b 60%, #a77a2b);
+  border-color: #fff0b5;
+  box-shadow:
+    0 0 0 1px rgba(233, 198, 107, 0.15),
+    0 0 18px rgba(217, 180, 91, 0.18);
+}
+
+/* ランキング一覧 */
+#page-ranking #rankingList {
+  margin: 12px 0 20px;
+}
+
+#page-ranking .ranking-item {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 8px 0;
+  padding: 15px;
+  color: #f5f1e8;
+  background: linear-gradient(110deg, rgba(217, 180, 91, 0.07), rgba(20, 20, 20, 0.7));
+  border: 1px solid rgba(217, 180, 91, 0.2);
+  border-radius: 9px;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+#page-ranking .ranking-item:hover {
+  transform: translateX(3px);
+  border-color: rgba(233, 198, 107, 0.65);
+  background: rgba(217, 180, 91, 0.09);
+}
+
+#page-ranking .ranking-position {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  min-height: 38px;
+  color: #f4dfa0;
+  font-weight: 900;
+  background: #292113;
+  border: 1px solid #80662e;
+  border-radius: 8px;
+}
+
+#page-ranking .ranking-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+#page-ranking .ranking-coins {
+  color: #f4dfa0;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 上位3名 */
+#page-ranking .ranking-item.rank-first {
+  border-color: rgba(255, 224, 135, 0.8);
+  background: linear-gradient(100deg, rgba(217, 180, 91, 0.2), rgba(20, 20, 20, 0.8));
+}
+
+#page-ranking .ranking-item.rank-first .ranking-position {
+  color: #171006;
+  background: linear-gradient(135deg, #fff0b5, #d9b45b);
+  border-color: #fff0b5;
+}
+
+#page-ranking .ranking-item.rank-second .ranking-position {
+  color: #f1f1f1;
+  border-color: #888;
+}
+
+#page-ranking .ranking-item.rank-third .ranking-position {
+  color: #e8b18b;
+  border-color: #a96c43;
+}
+
+/* 読み込み中・エラー表示 */
+#page-ranking #rankingList p,
+#page-ranking .error-message {
+  padding: 16px;
+  color: #bdb4a3;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  #page-ranking > .card {
+    padding: 19px 14px;
+  }
+
+  #page-ranking .ranking-tabs {
+    gap: 8px;
+  }
+
+  #page-ranking .ranking-tabs .btn {
+    flex: 1 1 calc(50% - 8px);
+    padding: 10px 7px;
+    font-size: 12px;
+  }
+
+  #page-ranking .ranking-item {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px 9px;
+  }
+
+  #page-ranking .ranking-position {
+    min-width: 32px;
+    min-height: 34px;
+  }
+
+  #page-ranking .ranking-coins {
+    grid-column: 2;
+    text-align: left;
+    white-space: normal;
+  }
+}
