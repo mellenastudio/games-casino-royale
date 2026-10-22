@@ -1113,3 +1113,164 @@ select:focus {
 .page.active:not(.hidden):not([hidden]) {
   display: block;
 }
+
+
+/* ==========================================
+   CASINO ROYALE — RANKING & PROFILE FIX
+========================================== */
+
+/* ランキング・プロフィールの共通カード */
+#page-ranking > .card,
+#page-profile > .card {
+  position: relative;
+  overflow: hidden;
+  padding: 30px;
+  background:
+    radial-gradient(
+      ellipse at top right,
+      rgba(217, 180, 91, 0.10),
+      transparent 55%
+    ),
+    linear-gradient(145deg, #19160f, #101010 65%);
+  border: 1px solid rgba(217, 180, 91, 0.55);
+  border-radius: 14px;
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.35),
+    inset 0 1px rgba(255, 240, 181, 0.04);
+}
+
+/* 見出し */
+#page-ranking h2,
+#page-profile h2 {
+  color: #fff0b5;
+  letter-spacing: 1px;
+  text-shadow: 0 0 15px rgba(217, 180, 91, 0.15);
+}
+
+#page-ranking .eyebrow,
+#page-profile .eyebrow {
+  color: #e9c66b;
+  letter-spacing: 3px;
+}
+
+/* ランキング切り替えボタン */
+#page-ranking .ranking-tabs {
+  gap: 10px;
+  margin: 22px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(217, 180, 91, 0.2);
+}
+
+#page-ranking .ranking-tabs .btn {
+  flex: 1 1 auto;
+  min-width: 100px;
+  background: linear-gradient(145deg, #292113, #15120d);
+  color: #f4dfa0;
+  border: 1px solid #80662e;
+}
+
+#page-ranking .ranking-tabs .btn:hover {
+  background: linear-gradient(145deg, #49391c, #211a0e);
+  border-color: #f4dfa0;
+  box-shadow: 0 0 14px rgba(217, 180, 91, 0.12);
+}
+
+/* ランキング行 */
+#page-ranking .rankrow {
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px 12px;
+  border-bottom: 1px solid rgba(217, 180, 91, 0.18);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+#page-ranking .rankrow:hover {
+  background: rgba(217, 180, 91, 0.05);
+  border-bottom-color: rgba(217, 180, 91, 0.5);
+}
+
+#page-ranking .ranknum {
+  min-width: 38px;
+  background: linear-gradient(145deg, #403219, #211a0d);
+  border: 1px solid rgba(217, 180, 91, 0.4);
+  color: #fff0b5;
+}
+
+#page-ranking .rankrow:first-child .ranknum {
+  background: linear-gradient(145deg, #f4dfa0, #b88b32);
+  color: #171006;
+  border-color: #fff0b5;
+}
+
+#page-ranking .gold {
+  color: #fff0b5;
+  font-weight: bold;
+}
+
+/* プロフィール情報内のカード・統計 */
+#page-profile #profileInfo {
+  margin-top: 22px;
+}
+
+#page-profile #profileInfo .grid {
+  gap: 14px;
+  margin: 18px 0;
+}
+
+#page-profile #profileInfo .stat {
+  background: linear-gradient(145deg, #292113, #15130f);
+  border: 1px solid rgba(217, 180, 91, 0.35);
+  box-shadow: inset 0 1px rgba(255, 240, 181, 0.04);
+}
+
+#page-profile #profileInfo strong {
+  color: #fff0b5;
+}
+
+/* プレイ履歴 */
+#page-profile #historyList {
+  margin-top: 18px;
+}
+
+#page-profile #historyList .table-wrap {
+  border: 1px solid rgba(217, 180, 91, 0.25);
+  border-radius: 9px;
+}
+
+#page-profile #historyList .table th {
+  background: rgba(217, 180, 91, 0.08);
+  color: #f4dfa0;
+}
+
+#page-profile #historyList .table td {
+  color: #eee6d5;
+}
+
+#page-profile .gold-divider {
+  border-top-color: rgba(217, 180, 91, 0.35);
+}
+
+/* スマホ対応 */
+@media (max-width: 600px) {
+  #page-ranking > .card,
+  #page-profile > .card {
+    padding: 18px 14px;
+  }
+
+  #page-ranking .rankrow {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 13px 4px;
+    font-size: 12px;
+  }
+
+  #page-ranking .ranknum {
+    padding: 7px 4px;
+    min-width: 32px;
+  }
+
+  #page-ranking .ranking-tabs .btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 10px);
+  }
+}
