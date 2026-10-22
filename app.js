@@ -4,7 +4,7 @@
 ========================================= */
 
 /* Apps ScriptのウェブアプリURLに変更 */
-const API_URL = "ここにウェブアプリURLを貼り付け";
+const API_URL = "https://script.google.com/macros/s/AKfycbyntM_IZhM0ywVJ0eq6fZkRH-RLHqS-J9dIWESpfBBQSPH1CYzq9ZCqbqENzfyvyW4rHg/exec";
 
 let token = localStorage.getItem("cr_token") || "";
 let currentUser = null;
