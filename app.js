@@ -1467,6 +1467,94 @@ if (document.readyState === "loading") {
   initCasinoRoyale();
 }
 
-/* =========================================================
-   END OF CASINO ROYALE app.js
-========================================================= */
+
+/* ==========================================
+   CASINO ROYALE — PAGE DISPLAY FIX
+========================================== */
+
+// HTMLの onclick="go('roulette')" などに対応
+function go(pageName) {
+  const pageMap = {
+    home: "page-home",
+    lobby: "page-home",
+    roulette: "page-roulette",
+    slots: "page-slots",
+    ranking: "page-ranking",
+    friends: "page-friends",
+    profile: "page-profile",
+    account: "page-account"
+  };
+
+  const targetId = pageMap[pageName];
+
+  if (!targetId) {
+    console.warn("Unknown page:", pageName);
+    return;
+  }
+
+  document.querySelectorAll(".page").forEach((page) => {
+    const isTarget = page.id === targetId;
+
+    page.classList.toggle("active", isTarget);
+    page.classList.toggle("hidden", !isTarget);
+    page.hidden = !isTarget;
+
+    if (isTarget) {
+      page.style.removeProperty("display");
+    }
+  });
+
+  document.querySelectorAll(".navbtn").forEach((button) => {
+    button.classList.toggle(
+      "active",
+      button.dataset.page === pageName
+    );
+  });
+
+  if (pageName === "ranking") loadRanking();
+  if (pageName === "friends") loadFriends();
+  if (pageName === "profile") loadHistory();
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ACCOUNTのログイン・新規登録切り替え
+function accountMode(mode) {
+  const form = document.getElementById("accountForm");
+  const submitButton = document.getElementById("accountSubmit");
+  const password = document.getElementById("password");
+
+  if (!form || !submitButton) return;
+
+  const isRegister = mode === "register";
+
+  form.dataset.action = isRegister ? "register" : "login";
+  submitButton.dataset.action = isRegister ? "register" : "login";
+  submitButton.textContent = isRegister ? "アカウント作成" : "ログイン";
+
+  if (password) {
+    password.autocomplete = isRegister
+      ? "new-password"
+      : "current-password";
+  }
+
+  document.querySelectorAll(".tabs button").forEach((button) => {
+    const onclickText = button.getAttribute("onclick") || "";
+
+    if (onclickText.includes("accountMode")) {
+      const active = onclickText.includes(`'${mode}'`);
+
+      button.classList.toggle("secondary", !active);
+    }
+  });
+}
+
+// 既存ナビゲーションも確実に接続
+document.querySelectorAll(".navbtn").forEach((button) => {
+  button.onclick = () => go(button.dataset.page);
+});
+
+// 初期表示をLOBBYに固定
+document.addEventListener("DOMContentLoaded", () => {
+  go("home");
+});
