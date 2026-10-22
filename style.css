@@ -604,3 +604,343 @@ select:focus {
     font-size: 12px;
   }
 }
+
+
+/* ==========================================
+   CASINO ROYALE — LUXURY VISUAL UPGRADE
+   画像ファイル: images/hero.jpg
+                 images/roulette.jpg
+                 images/slots.jpg
+========================================== */
+
+:root {
+  --royal-gold: #e9c66b;
+  --royal-gold-light: #fff0b5;
+}
+
+/* ===== 1. LOBBY HERO ===== */
+
+.hero {
+  min-height: 390px;
+  padding: 65px 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  isolation: isolate;
+  border: 1px solid rgba(233, 198, 107, .8);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(5, 5, 8, .88) 0%,
+      rgba(5, 5, 8, .62) 48%,
+      rgba(5, 5, 8, .16) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(5, 5, 8, .65),
+      transparent 65%
+    ),
+    url("images/hero.jpg") center 52% / cover no-repeat;
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, .45),
+    inset 0 0 45px rgba(0, 0, 0, .2);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  z-index: -1;
+  border: 1px solid rgba(233, 198, 107, .32);
+  border-radius: 8px;
+  background: none;
+  pointer-events: none;
+}
+
+.hero .eyebrow {
+  color: #ffe5a0;
+  text-shadow: 0 2px 8px #000;
+}
+
+.hero h1 {
+  max-width: 100%;
+  color: #fff0b5;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(30px, 5vw, 55px);
+  letter-spacing: .07em;
+  line-height: 1.2;
+  text-shadow:
+    0 3px 8px #000,
+    0 0 25px rgba(233, 198, 107, .35);
+}
+
+.hero p {
+  color: #f4eee1;
+  text-shadow: 0 2px 6px #000;
+}
+
+.hero .actions {
+  margin-top: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero .btn {
+  background: linear-gradient(135deg, #fff0b5, #d8ad4d 55%, #9b7025);
+  color: #171006;
+  border: 1px solid #ffe9a0;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, .35),
+    inset 0 1px rgba(255, 255, 255, .6);
+}
+
+.hero .btn:hover {
+  background: linear-gradient(135deg, #fff9dc, #f0ca69, #b88930);
+  box-shadow: 0 0 24px rgba(233, 198, 107, .35);
+}
+
+/* ===== 2. GAME SELECTION CARDS ===== */
+
+.game-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 260px;
+  padding: 24px;
+  border: 1px solid rgba(233, 198, 107, .75);
+  background-color: #111;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+}
+
+.game-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 8, .08) 0%,
+    rgba(5, 5, 8, .42) 42%,
+    rgba(5, 5, 8, .96) 100%
+  );
+  pointer-events: none;
+}
+
+.game-card:nth-child(1) {
+  background-image: url("images/roulette.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.game-card:nth-child(2) {
+  background-image: url("images/slots.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.game-card h3 {
+  color: #fff0b5;
+  text-shadow: 0 2px 8px #000;
+  letter-spacing: 2px;
+}
+
+.game-card p {
+  color: #eee4d2;
+  text-shadow: 0 2px 5px #000;
+}
+
+.game-card .game-icon {
+  filter: drop-shadow(0 3px 8px #000);
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  border-color: #fff0b5;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, .5),
+    0 0 18px rgba(233, 198, 107, .16);
+}
+
+/* ===== 3. ROULETTE SCREEN ===== */
+
+#page-roulette .game-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  max-width: 760px;
+  padding: 30px;
+  border: 1px solid rgba(233, 198, 107, .85);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(8, 7, 7, .70),
+      rgba(8, 7, 7, .94)
+    ),
+    url("images/roulette.jpg") center / cover no-repeat,
+    #100b0b;
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, .5),
+    inset 0 0 35px rgba(233, 198, 107, .05);
+}
+
+#page-roulette .game-panel::before,
+#page-slots .game-panel::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 9px;
+  border: 1px solid rgba(233, 198, 107, .25);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+#page-roulette .game-panel h2 {
+  color: #fff0b5;
+  text-shadow: 0 0 18px rgba(233, 198, 107, .22);
+}
+
+#page-roulette .wheel {
+  border: 8px solid #d8b65e;
+  box-shadow:
+    0 0 0 3px #493817,
+    0 0 28px rgba(233, 198, 107, .35),
+    0 0 70px rgba(181, 30, 35, .16),
+    inset 0 0 0 5px #21180a;
+}
+
+#page-roulette .wheel-center {
+  border: 3px solid #e9c66b;
+  box-shadow:
+    0 0 20px rgba(233, 198, 107, .25),
+    inset 0 0 12px rgba(233, 198, 107, .1);
+}
+
+#page-roulette .result-panel {
+  border: 1px solid rgba(233, 198, 107, .3);
+  background: rgba(5, 5, 7, .85);
+}
+
+/* ===== 4. SLOT MACHINE SCREEN ===== */
+
+#page-slots .game-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  max-width: 760px;
+  padding: 30px;
+  border: 1px solid rgba(233, 198, 107, .85);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(10, 5, 17, .65),
+      rgba(8, 5, 13, .94)
+    ),
+    url("images/slots.jpg") center / cover no-repeat,
+    #100918;
+  box-shadow:
+    0 14px 40px rgba(0, 0, 0, .5),
+    0 0 25px rgba(127, 55, 190, .12);
+}
+
+#page-slots .game-panel h2 {
+  color: #fff0b5;
+  text-shadow:
+    0 0 15px rgba(233, 198, 107, .3),
+    0 2px 8px #000;
+}
+
+#page-slots .reels {
+  gap: 12px;
+  padding: 18px 12px;
+  border: 1px solid rgba(233, 198, 107, .6);
+  border-radius: 14px;
+  background: rgba(4, 3, 8, .72);
+  box-shadow:
+    inset 0 0 30px rgba(118, 51, 180, .15),
+    0 0 24px rgba(233, 198, 107, .1);
+}
+
+#page-slots .reel {
+  border: 2px solid #e9c66b;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #24162b, #09080d);
+  box-shadow:
+    inset 0 0 20px rgba(233, 198, 107, .1),
+    0 0 12px rgba(233, 198, 107, .13);
+}
+
+#page-slots .result-panel {
+  border: 1px solid rgba(233, 198, 107, .35);
+  background: rgba(5, 4, 10, .88);
+}
+
+/* ===== 5. COMMON GOLD DETAILS ===== */
+
+#page-roulette .eyebrow,
+#page-slots .eyebrow {
+  color: #f0d68f;
+}
+
+#page-roulette .field label,
+#page-slots .field label {
+  color: #e8d9b7;
+}
+
+#page-roulette input,
+#page-roulette select,
+#page-slots input,
+#page-slots select {
+  border-color: rgba(233, 198, 107, .5);
+  background-color: rgba(7, 7, 9, .94);
+}
+
+#page-roulette .game-panel > .btn,
+#page-slots .game-panel > .btn {
+  color: #1a1205;
+  background: linear-gradient(135deg, #fff0b5, #d9b45b 55%, #9b7025);
+  border: 1px solid #ffe7a0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .35);
+  letter-spacing: 1px;
+}
+
+#page-roulette .game-panel > .btn:hover,
+#page-slots .game-panel > .btn:hover {
+  box-shadow: 0 0 22px rgba(233, 198, 107, .3);
+  filter: brightness(1.08);
+}
+
+/* ===== 6. MOBILE ===== */
+
+@media (max-width: 600px) {
+  .hero {
+    min-height: 320px;
+    padding: 35px 20px;
+    background-position: 58% center;
+  }
+
+  .hero h1 {
+    font-size: clamp(27px, 8vw, 39px);
+    overflow-wrap: anywhere;
+  }
+
+  .hero .actions {
+    width: 100%;
+  }
+
+  .hero .actions .btn {
+    flex: 1 1 100%;
+  }
+
+  .game-card {
+    min-height: 220px;
+  }
+
+  #page-roulette .game-panel,
+  #page-slots .game-panel {
+    padding: 22px 16px;
+  }
+}
