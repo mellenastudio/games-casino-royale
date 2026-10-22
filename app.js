@@ -1,9 +1,11 @@
+
 /* =========================================
    CASINO ROYALE
    Frontend Application
+   Roulette & Slot Spin Animation
 ========================================= */
 
-/* Apps ScriptのウェブアプリURLに変更 */
+/* Apps ScriptのウェブアプリURL */
 const API_URL = "https://script.google.com/macros/s/AKfycbyntM_IZhM0ywVJ0eq6fZkRH-RLHqS-J9dIWESpfBBQSPH1CYzq9ZCqbqENzfyvyW4rHg/exec";
 
 let token = localStorage.getItem("cr_token") || "";
@@ -12,13 +14,24 @@ let accountAction = "login";
 let currentRanking = "wealth";
 let busy = false;
 
+let wheelRotation = 0;
+let slotAnimationId = 0;
+
 const $ = id => document.getElementById(id);
-const fmt = value => Number(value || 0).toLocaleString("ja-JP");
+
+const fmt = value =>
+  Number(value || 0).toLocaleString("ja-JP");
+
+const sleep = ms =>
+  new Promise(resolve => setTimeout(resolve, ms));
 
 /* ---------- UI ---------- */
 
 function message(text, error = false) {
   const box = $("notice");
+
+  if (!box) return;
+
   box.textContent = text;
   box.classList.toggle("error", error);
 }
@@ -29,12 +42,16 @@ function go(page) {
   });
 
   const target = $("page-" + page);
+
   if (!target) return;
 
   target.classList.remove("hidden");
 
   document.querySelectorAll(".navbtn").forEach(button => {
-    button.classList.toggle("active", button.dataset.page === page);
+    button.classList.toggle(
+      "active",
+      button.dataset.page === page
+    );
   });
 
   if (page === "ranking") loadRanking(currentRanking);
@@ -42,11 +59,16 @@ function go(page) {
   if (page === "profile") loadProfile();
   if (page === "account") syncAccountUI();
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
 document.querySelectorAll(".navbtn").forEach(button => {
-  button.addEventListener("click", () => go(button.dataset.page));
+  button.addEventListener("click", () => {
+    go(button.dataset.page);
+  });
 });
 
 /* ---------- API ---------- */
@@ -101,16 +123,21 @@ function accountMode(mode) {
   accountAction = mode;
 
   $("accountSubmit").textContent =
-    mode === "login" ? "ログイン" : "アカウントを作成";
+    mode === "login"
+      ? "ログイン"
+      : "アカウントを作成";
 
   $("password").autocomplete =
-    mode === "login" ? "current-password" : "new-password";
+    mode === "login"
+      ? "current-password"
+      : "new-password";
 }
 
 $("accountForm").addEventListener("submit", async event => {
   event.preventDefault();
 
   const button = $("accountSubmit");
+
   button.disabled = true;
 
   try {
@@ -123,6 +150,7 @@ $("accountForm").addEventListener("submit", async event => {
     currentUser = data.session.user;
 
     localStorage.setItem("cr_token", token);
+
     $("password").value = "";
 
     renderUser();
@@ -142,24 +170,31 @@ $("accountForm").addEventListener("submit", async event => {
 });
 
 function syncAccountUI() {
-  $("logoutButton").classList.toggle("hidden", !token);
+  $("logoutButton").classList.toggle(
+    "hidden",
+    !token
+  );
 }
 
 async function logout() {
   try {
-    if (token) await api("logout");
+    if (token) {
+      await api("logout");
+    }
   } catch (error) {
-    // サーバーに接続できない場合も、この端末のログイン情報は破棄する
+    // 接続できなくても端末側のログイン情報を破棄
   }
 
   token = "";
   currentUser = null;
+
   localStorage.removeItem("cr_token");
 
   renderUser();
   syncAccountUI();
 
   message("ログアウトしました。");
+
   go("home");
 }
 
@@ -178,7 +213,10 @@ function renderUser() {
     ? fmt(currentUser.games)
     : "---";
 
-  $("logoutButton").classList.toggle("hidden", !token);
+  $("logoutButton").classList.toggle(
+    "hidden",
+    !token
+  );
 }
 
 async function refreshMe() {
@@ -189,12 +227,13 @@ async function refreshMe() {
 
   try {
     const data = await api("me");
+
     currentUser = data.user;
+
     renderUser();
   } catch (error) {
-    token = "";
-    currentUser = null;
-    localStorage.removeItem("cr_token");
+    // 通信エラーだけでセッションを勝手に破棄しない
+    message(error.message, true);
     renderUser();
   }
 }
@@ -205,43 +244,81 @@ async function play(game) {
   if (busy) return;
 
   if (!token) {
-    message("プレイするにはアカウント登録・ログインが必要です。", true);
+    message(
+      "プレイするにはアカウント登録・ログインが必要です。",
+      true
+    );
+
     go("account");
     return;
   }
 
-  const betInput = $(game === "roulette" ? "rouletteBet" : "slotsBet");
+  const betInput = $(
+    game === "roulette"
+      ? "rouletteBet"
+      : "slotsBet"
+  );
+
   const bet = Number(betInput.value);
 
-  if (!Number.isInteger(bet) || bet < 10 || bet > 10000) {
-    message("賭けコインは10〜10,000枚の整数で入力してください。", true);
+  if (
+    !Number.isInteger(bet) ||
+    bet < 10 ||
+    bet > 10000
+  ) {
+    message(
+      "賭けコインは10〜10,000枚の整数で入力してください。",
+      true
+    );
     return;
   }
 
-  const extra = { game, bet };
+  const extra = {
+    game,
+    bet
+  };
 
   if (game === "roulette") {
     extra.choice = $("rouletteChoice").value;
   }
 
-  busy = true;
+  const button = $(
+    game === "roulette"
+      ? "rouletteButton"
+      : "slotsButton"
+  );
 
-  const button = $(game === "roulette" ? "rouletteButton" : "slotsButton");
   const originalText = button.textContent;
 
+  busy = true;
+
   button.disabled = true;
-  button.textContent = "DEALING...";
+  button.textContent =
+    game === "roulette"
+      ? "SPINNING..."
+      : "SPINNING...";
 
   try {
+    // サーバーでゲーム結果を確定
+    message("ゲームの準備中...");
+
     const data = await api("play", extra);
 
+    if (!data.result || !data.user) {
+      throw new Error(
+        "ゲーム結果を正しく取得できませんでした。"
+      );
+    }
+
+    // 残高はサーバーから返された値を使用
     currentUser = data.user;
     renderUser();
 
+    // 結果に合わせて回転演出
     if (game === "roulette") {
-      showRouletteResult(data.result, bet);
+      await animateRoulette(data.result, bet);
     } else {
-      showSlotsResult(data.result, bet);
+      await animateSlots(data.result, bet);
     }
   } catch (error) {
     message(error.message, true);
@@ -252,29 +329,183 @@ async function play(game) {
   }
 }
 
+/* ---------- Roulette Animation ---------- */
+
+async function animateRoulette(result, bet) {
+  const wheel = document.querySelector(
+    "#page-roulette .wheel"
+  );
+
+  if (!wheel) {
+    showRouletteResult(result, bet);
+    return;
+  }
+
+  const resultPanel = $("rouletteResult");
+
+  resultPanel.textContent = "";
+
+  $("wheelResult").textContent = "★";
+  $("wheelColor").textContent = "SPINNING";
+
+  message("ルーレットが回転中...");
+
+  // 前回の角度を維持しながら回転を追加
+  const startRotation = wheelRotation;
+
+  const extraRotation =
+    360 * 7 + Math.random() * 360;
+
+  wheelRotation = startRotation + extraRotation;
+
+  // 現在位置に固定してからアニメーション開始
+  wheel.style.transition = "none";
+  wheel.style.transform =
+    `rotate(${startRotation}deg)`;
+
+  void wheel.offsetWidth;
+
+  wheel.style.transition =
+    "transform 4.5s cubic-bezier(.10,.68,.12,1)";
+
+  wheel.style.transform =
+    `rotate(${wheelRotation}deg)`;
+
+  await sleep(4700);
+
+  showRouletteResult(result, bet);
+}
+
+/* ---------- Roulette Result ---------- */
+
 function showRouletteResult(result, bet) {
   $("wheelResult").textContent = result.number;
-  $("wheelColor").textContent = result.color.toUpperCase();
+
+  $("wheelColor").textContent =
+    String(result.color || "").toUpperCase();
+
+  const net = Number(result.payout) - bet;
 
   $("rouletteResult").textContent =
-    result.message + " — " +
-    fmt(result.payout) + "コイン返還 / " +
-    (result.payout - bet >= 0 ? "+" : "") +
-    fmt(result.payout - bet) + "コイン";
+    result.message +
+    " — " +
+    fmt(result.payout) +
+    "コイン返還 / " +
+    (net >= 0 ? "+" : "") +
+    fmt(net) +
+    "コイン";
 
-  message("ルーレットの結果：" + result.number + " / " + result.color);
+  message(
+    "ルーレットの結果：" +
+    result.number +
+    " / " +
+    result.color
+  );
 }
+
+/* ---------- Slot Animation ---------- */
+
+async function animateSlots(result, bet) {
+  const reels = [
+    $("reel0"),
+    $("reel1"),
+    $("reel2")
+  ];
+
+  const symbols = [
+    "🍒",
+    "🔔",
+    "⭐",
+    "🍋",
+    "7️⃣"
+  ];
+
+  if (
+    !Array.isArray(result.reels) ||
+    result.reels.length !== 3 ||
+    reels.some(reel => !reel)
+  ) {
+    showSlotsResult(result, bet);
+    return;
+  }
+
+  // この演出の識別番号
+  const animationId = ++slotAnimationId;
+
+  $("slotsResult").textContent = "";
+
+  message("スロットが回転中...");
+
+  reels.forEach(reel => {
+    reel.classList.remove("reel-stopped");
+    reel.classList.add("spinning");
+  });
+
+  // 左・中央・右の順にリールを停止
+  for (let i = 0; i < reels.length; i++) {
+    const reel = reels[i];
+
+    const duration = 1400 + i * 650;
+    const interval = 65;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < duration) {
+      if (animationId !== slotAnimationId) {
+        return;
+      }
+
+      reel.textContent =
+        symbols[
+          Math.floor(Math.random() * symbols.length)
+        ];
+
+      await sleep(interval);
+    }
+
+    if (animationId !== slotAnimationId) {
+      return;
+    }
+
+    // 最後は必ずサーバーの確定結果に合わせる
+    reel.textContent = result.reels[i];
+
+    reel.classList.remove("spinning");
+    reel.classList.add("reel-stopped");
+
+    await sleep(220);
+
+    reel.classList.remove("reel-stopped");
+  }
+
+  await sleep(250);
+
+  showSlotsResult(result, bet);
+}
+
+/* ---------- Slot Result ---------- */
 
 function showSlotsResult(result, bet) {
   result.reels.forEach((symbol, index) => {
-    $("reel" + index).textContent = symbol;
+    const reel = $("reel" + index);
+
+    if (!reel) return;
+
+    reel.textContent = symbol;
+
+    reel.classList.remove("spinning");
+    reel.classList.remove("reel-stopped");
   });
 
+  const net = Number(result.payout) - bet;
+
   $("slotsResult").textContent =
-    result.message + " — " +
-    fmt(result.payout) + "コイン返還 / " +
-    (result.payout - bet >= 0 ? "+" : "") +
-    fmt(result.payout - bet) + "コイン";
+    result.message +
+    " — " +
+    fmt(result.payout) +
+    "コイン返還 / " +
+    (net >= 0 ? "+" : "") +
+    fmt(net) +
+    "コイン";
 
   message("スロットの結果：" + result.message);
 }
@@ -296,16 +527,19 @@ async function loadRanking(mode) {
       return;
     }
 
-    $("rankingList").innerHTML = data.ranking.map((user, index) => `
-      <div class="rankrow">
-        <div class="ranknum">${index + 1}</div>
-        <div>
-          <strong>${esc(user.username)}</strong>
-          <div class="muted">${index === 0 ? "ROYAL CHAMPION" : "PLAYER"}</div>
+    $("rankingList").innerHTML =
+      data.ranking.map((user, index) => `
+        <div class="rankrow">
+          <div class="ranknum">${index + 1}</div>
+          <div>
+            <strong>${esc(user.username)}</strong>
+            <div class="muted">
+              ${index === 0 ? "ROYAL CHAMPION" : "PLAYER"}
+            </div>
+          </div>
+          <strong class="gold">${fmt(user.score)}</strong>
         </div>
-        <strong class="gold">${fmt(user.score)}</strong>
-      </div>
-    `).join("");
+      `).join("");
   } catch (error) {
     $("rankingList").textContent = error.message;
   }
@@ -330,13 +564,17 @@ async function searchFriends() {
       return;
     }
 
-    $("friendSearchResults").innerHTML = data.users.map(user => `
-      <div class="rankrow">
-        <div>♟</div>
-        <div>${esc(user.username)}</div>
-        <button class="btn small" data-friend-request="${esc(user.id)}">申請</button>
-      </div>
-    `).join("");
+    $("friendSearchResults").innerHTML =
+      data.users.map(user => `
+        <div class="rankrow">
+          <div>♟</div>
+          <div>${esc(user.username)}</div>
+          <button
+            class="btn small"
+            data-friend-request="${esc(user.id)}"
+          >申請</button>
+        </div>
+      `).join("");
 
     $("friendSearchResults")
       .querySelectorAll("[data-friend-request]")
@@ -352,8 +590,12 @@ async function searchFriends() {
 
 async function sendRequest(targetId) {
   try {
-    const data = await api("friendRequest", { targetId });
+    const data = await api("friendRequest", {
+      targetId
+    });
+
     message(data.message);
+
     await loadFriends();
   } catch (error) {
     message(error.message, true);
@@ -364,33 +606,43 @@ async function loadFriends() {
   if (!token) {
     $("incomingRequests").innerHTML =
       '<p class="muted">ログインしてください。</p>';
+
     $("friendsList").innerHTML = "";
+
     $("transferTarget").innerHTML =
       '<option value="">フレンドを選択</option>';
+
     return;
   }
 
   try {
     const data = await api("friends");
 
-    $("incomingRequests").innerHTML = data.incoming.length
-      ? data.incoming.map(request => `
-          <div class="rankrow">
-            <div>✉</div>
-            <div>${esc(request.username)}</div>
-            <div class="actions">
-              <button class="btn small"
-                data-request-id="${esc(request.id)}"
-                data-accept="true">承認</button>
-              <button class="btn secondary small"
-                data-request-id="${esc(request.id)}"
-                data-accept="false">拒否</button>
-            </div>
-          </div>
-        `).join("")
-      : '<p class="muted">新しい申請はありません。</p>';
+    $("incomingRequests").innerHTML =
+      data.incoming.length
+        ? data.incoming.map(request => `
+            <div class="rankrow">
+              <div>✉</div>
+              <div>${esc(request.username)}</div>
+              <div class="actions">
+                <button
+                  class="btn small"
+                  data-request-id="${esc(request.id)}"
+                  data-accept="true"
+                >承認</button>
 
-    $("incomingRequests").querySelectorAll("[data-request-id]")
+                <button
+                  class="btn secondary small"
+                  data-request-id="${esc(request.id)}"
+                  data-accept="false"
+                >拒否</button>
+              </div>
+            </div>
+          `).join("")
+        : '<p class="muted">新しい申請はありません。</p>';
+
+    $("incomingRequests")
+      .querySelectorAll("[data-request-id]")
       .forEach(button => {
         button.addEventListener("click", () => {
           respondRequest(
@@ -400,20 +652,23 @@ async function loadFriends() {
         });
       });
 
-    $("friendsList").innerHTML = data.friends.length
-      ? data.friends.map(friend => `
-          <div class="rankrow">
-            <div>♟</div>
-            <div>${esc(friend.username)}</div>
-            <span class="gold">FRIEND</span>
-          </div>
-        `).join("")
-      : '<p class="muted">フレンドはまだいません。</p>';
+    $("friendsList").innerHTML =
+      data.friends.length
+        ? data.friends.map(friend => `
+            <div class="rankrow">
+              <div>♟</div>
+              <div>${esc(friend.username)}</div>
+              <span class="gold">FRIEND</span>
+            </div>
+          `).join("")
+        : '<p class="muted">フレンドはまだいません。</p>';
 
     $("transferTarget").innerHTML =
       '<option value="">フレンドを選択</option>' +
       data.friends.map(friend => `
-        <option value="${esc(friend.id)}">${esc(friend.username)}</option>
+        <option value="${esc(friend.id)}">
+          ${esc(friend.username)}
+        </option>
       `).join("");
   } catch (error) {
     message(error.message, true);
@@ -422,7 +677,10 @@ async function loadFriends() {
 
 async function respondRequest(requestId, accept) {
   try {
-    await api("friendRespond", { requestId, accept });
+    await api("friendRespond", {
+      requestId,
+      accept
+    });
 
     message(
       accept
@@ -445,17 +703,27 @@ async function transferCoins() {
     return;
   }
 
-  if (!Number.isInteger(amount) || amount < 1 || amount > 50000) {
+  if (
+    !Number.isInteger(amount) ||
+    amount < 1 ||
+    amount > 50000
+  ) {
     message("送付額は1〜50,000枚の整数で入力してください。", true);
     return;
   }
 
-  if (!confirm(fmt(amount) + "コインを送付しますか？")) return;
+  if (!confirm(fmt(amount) + "コインを送付しますか？")) {
+    return;
+  }
 
   try {
-    const data = await api("transfer", { targetId, amount });
+    const data = await api("transfer", {
+      targetId,
+      amount
+    });
 
     currentUser = data.user;
+
     renderUser();
 
     message(data.message);
@@ -470,7 +738,9 @@ async function loadProfile() {
   if (!token) {
     $("profileInfo").innerHTML =
       '<p class="muted">ログインしてください。</p>';
+
     $("historyList").innerHTML = "";
+
     return;
   }
 
@@ -481,25 +751,30 @@ async function loadProfile() {
     ]);
 
     currentUser = me.user;
+
     renderUser();
 
     const user = me.user;
 
     $("profileInfo").innerHTML = `
       <h3>${esc(user.username)}</h3>
+
       <div class="grid">
         <div class="stat">
           <small>所持コイン</small>
           <strong>${fmt(user.coins)}</strong>
         </div>
+
         <div class="stat">
           <small>プレイ回数</small>
           <strong>${fmt(user.games)}</strong>
         </div>
+
         <div class="stat">
           <small>総賭け金</small>
           <strong>${fmt(user.totalBet)}</strong>
         </div>
+
         <div class="stat">
           <small>総返還額</small>
           <strong>${fmt(user.totalPayout)}</strong>
@@ -512,6 +787,7 @@ async function loadProfile() {
     if (!history.length) {
       $("historyList").innerHTML =
         '<p class="muted">まだプレイ履歴がありません。</p>';
+
       return;
     }
 
@@ -527,14 +803,29 @@ async function loadProfile() {
               <th>収支</th>
             </tr>
           </thead>
+
           <tbody>
             ${history.map(item => `
               <tr>
-                <td>${esc(new Date(item.createdAt).toLocaleString("ja-JP"))}</td>
-                <td>${item.game === "roulette" ? "ルーレット" : "スロット"}</td>
+                <td>
+                  ${esc(
+                    new Date(item.createdAt)
+                      .toLocaleString("ja-JP")
+                  )}
+                </td>
+
+                <td>
+                  ${item.game === "roulette"
+                    ? "ルーレット"
+                    : "スロット"}
+                </td>
+
                 <td>${fmt(item.bet)}</td>
                 <td>${fmt(item.payout)}</td>
-                <td style="color:${item.net >= 0 ? "#e6cc7d" : "#ef7777"}">
+
+                <td style="color:${
+                  item.net >= 0 ? "#e6cc7d" : "#ef7777"
+                }">
                   ${item.net > 0 ? "+" : ""}${fmt(item.net)}
                 </td>
               </tr>
@@ -564,7 +855,9 @@ function esc(value) {
 
 async function init() {
   accountMode("login");
+
   syncAccountUI();
+
   await refreshMe();
 }
 
