@@ -914,18 +914,51 @@ async function animateSlots(result, bet) {
   }
 }
 
-/* =========================================================
-   16. RANKING
-========================================================= */
 
-async function loadRanking() {
-  const list = $("#rankingList");
+/* ==========================================
+   CASINO ROYALE | RANKING
+========================================== */
+
+async function loadRanking(mode = window.currentRanking || "wealth") {
+  const list = document.querySelector("#rankingList");
+  const tabs = document.querySelectorAll("#page-ranking .ranking-tabs .btn");
+
   if (!list) return;
 
-  list.innerHTML = "<p>ランキングを読み込み中...</p>";
+  const allowedModes = ["wealth", "weekly", "roulette", "slots"];
+
+  if (!allowedModes.includes(mode)) {
+    mode = "wealth";
+  }
+
+  // 現在選択しているランキングを保存
+  window.currentRanking = mode;
+
+  // 選択中のタブを更新
+  tabs.forEach((button) => {
+    const onclickText = button.getAttribute("onclick") || "";
+    const isActive = onclickText.includes(`'${mode}'`);
+
+    button.classList.toggle("active", isActive);
+    button.classList.toggle("secondary", !isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  const modeLabels = {
+    wealth: "総資産",
+    weekly: "週間収支",
+    roulette: "ルーレット",
+    slots: "スロット"
+  };
+
+  list.innerHTML = `
+    <p class="muted">${modeLabels[mode]}ランキングを読み込み中...</p>
+  `;
 
   try {
-    const data = await api("ranking");
+    // APIにランキングの種類を渡す
+    const data = await api("ranking", { mode });
+
     const ranking =
       data.ranking ??
       data.users ??
@@ -933,24 +966,42 @@ async function loadRanking() {
       [];
 
     if (!Array.isArray(ranking) || ranking.length === 0) {
-      list.innerHTML = "<p>ランキングデータがありません。</p>";
+      list.innerHTML = `
+        <p class="muted">${modeLabels[mode]}のランキングデータがありません。</p>
+      `;
       return;
     }
 
     list.innerHTML = ranking.map((user, index) => {
       const name = user.username ?? user.name ?? "プレイヤー";
-      const coins = user.coins ?? user.balance ?? 0;
+
+      // Code.gsのscore形式にも対応
+      const score = Number(
+        user.score ??
+        user.coins ??
+        user.balance ??
+        0
+      );
 
       const rankClass =
         index === 0 ? "rank-first" :
         index === 1 ? "rank-second" :
         index === 2 ? "rank-third" : "";
 
+      const medal =
+        index === 0 ? " 👑" :
+        index === 1 ? " 🥈" :
+        index === 2 ? " 🥉" : "";
+
       return `
         <div class="ranking-item ${rankClass}">
           <div class="ranking-position">${index + 1}</div>
-          <div class="ranking-name">${escapeHTML(name)}</div>
-          <div class="ranking-coins">${formatCoins(coins)} COINS</div>
+          <div class="ranking-name">
+            ${escapeHTML(name)}${medal}
+          </div>
+          <div class="ranking-coins">
+            ${formatCoins(score)} ${mode === "wealth" ? "COINS" : "PT"}
+          </div>
         </div>
       `;
     }).join("");
@@ -963,6 +1014,7 @@ async function loadRanking() {
     `;
   }
 }
+
 
 /* =========================================================
    17. FRIEND SEARCH
