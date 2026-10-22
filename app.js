@@ -318,6 +318,7 @@ async function handleAccountSubmit(event) {
   const submitButton = $("#accountSubmit");
   const usernameInput = $("#username");
   const passwordInput = $("#password");
+  const accountForm = $("#accountForm");
 
   if (!usernameInput || !passwordInput) return;
 
@@ -329,50 +330,36 @@ async function handleAccountSubmit(event) {
     return;
   }
 
-  if (submitButton) submitButton.disabled = true;
+  const action =
+    submitButton?.dataset.action ||
+    accountForm?.dataset.action ||
+    "login";
+
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
 
   try {
-    /*
-      登録・ログインを同じフォームから扱うため、
-      HTML側の data-action="register" があれば登録、
-      それ以外はログインとして処理します。
-    */
-    const action =
-      submitButton?.dataset.action ||
-      $("#accountForm")?.dataset.action ||
-      "login";
-
     const data = await api(action, {
       username,
       password
     });
 
-    if (data.token) {
-      token = data.token;
-      localStorage.setItem(SESSION_KEY, token);
+    // Code.gs の返却形式 session.token / session.user に対応
+    const sessionData = data.session || {};
+
+    if (!sessionData.token || !sessionData.user) {
+      throw new Error(
+        "ログイン情報を受け取れませんでした。Apps Scriptの応答を確認してください。"
+      );
     }
 
-    currentUser =
-      data.user ??
-      data.account ??
-      data.data?.user ??
-      null;
+    token = sessionData.token;
+    currentUser = sessionData.user;
 
-    if (!currentUser && token) {
-      const me = await api("me");
-      currentUser =
-        me.user ??
-        me.account ??
-        me.data?.user ??
-        null;
-    }
-
-    if (!currentUser) {
-      throw new Error("ユーザー情報を取得できませんでした。");
-    }
+    localStorage.setItem(SESSION_KEY, token);
 
     renderUser();
-
     passwordInput.value = "";
 
     showNotice(
@@ -383,10 +370,16 @@ async function handleAccountSubmit(event) {
     );
 
     showPage("home");
+
   } catch (error) {
-    showNotice(error.message || "アカウント処理に失敗しました。", "error");
+    showNotice(
+      error.message || "アカウント処理に失敗しました。",
+      "error"
+    );
   } finally {
-    if (submitButton) submitButton.disabled = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
   }
 }
 
@@ -423,17 +416,14 @@ async function restoreSession() {
   try {
     const data = await api("me");
 
-    currentUser =
-      data.user ??
-      data.account ??
-      data.data?.user ??
-      null;
-
-    if (!currentUser) {
-      throw new Error("セッションが無効です。");
+    // Code.gs の me は { ok: true, user: {...} } を返す
+    if (!data.user) {
+      throw new Error("ユーザー情報がありません。");
     }
 
+    currentUser = data.user;
     renderUser();
+
   } catch (error) {
     token = "";
     currentUser = null;
