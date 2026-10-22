@@ -944,3 +944,66 @@ select:focus {
     padding: 22px 16px;
   }
 }
+
+
+/* ===== ヘッダーをコンパクトに ===== */
+
+.topbar {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.brand {
+  font-size: 16px;
+  gap: 8px;
+}
+
+.brand-crown {
+  font-size: 27px;
+}
+
+.brand small {
+  margin-top: 2px;
+  font-size: 8px;
+}
+
+.navigation {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  gap: 5px;
+}
+
+.navbtn {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+/* スマホ */
+@media (max-width: 600px) {
+  .topbar {
+    padding: 7px 12px;
+  }
+
+  .brand {
+    font-size: 13px;
+  }
+
+  .brand-crown {
+    font-size: 23px;
+  }
+
+  .brand small {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+  }
+
+  .navigation {
+    padding: 4px 10px;
+    gap: 4px;
+  }
+
+  .navbtn {
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+}
