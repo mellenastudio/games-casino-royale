@@ -1,83 +1,131 @@
-/* =========================================
-   CASINO ROYALE
-   Frontend Application
-   Roulette & Slot Spin Animation
-========================================= */
+/* =========================================================
+   CASINO ROYALE | app.js
+   GitHub Pages + Google Apps Script + Google Sheets
+   Features:
+   - Register / Login / Logout / Session restore
+   - Virtual coin balance
+   - Roulette animation + winning pointer
+   - Slots animation
+   - Ranking
+   - Friend search / requests / friend list
+   - Coin transfers
+   - Profile / play history
+========================================================= */
 
-/* Apps ScriptのウェブアプリURL */
-const API_URL = "https://script.google.com/macros/s/AKfycbyntM_IZhM0ywVJ0eq6fZkRH-RLHqS-J9dIWESpfBBQSPH1CYzq9ZCqbqENzfyvyW4rHg/exec";
+"use strict";
 
-let token = localStorage.getItem("cr_token") || "";
+/* =========================================================
+   1. API SETTINGS
+========================================================= */
+
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbyntM_IZhM0ywVJ0eq6fZkRH-RLHqS-J9dIWESpfBBQSPH1CYzq9ZCqbqENzfyvyW4rHg/exec";
+
+const SESSION_KEY = "casinoRoyaleToken";
+
+/* =========================================================
+   2. GAME SETTINGS
+========================================================= */
+
+const ROULETTE_NUMBERS = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
+  6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
+  24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
+  29, 7, 28, 12, 35, 3, 26
+];
+
+const ROULETTE_RED_NUMBERS = new Set([
+  1, 3, 5, 7, 9, 12, 14, 16, 18,
+  19, 21, 23, 25, 27, 30, 32, 34, 36
+]);
+
+const SLOT_SYMBOLS = ["🍒", "🔔", "⭐", "🍋", "7️⃣"];
+
+const SLOT_ANIMATION_DURATION = 1800;
+const ROULETTE_ANIMATION_DURATION = 5200;
+
+let token = localStorage.getItem(SESSION_KEY) || "";
 let currentUser = null;
-let accountAction = "login";
-let currentRanking = "wealth";
-let busy = false;
 
-let wheelRotation = 0;
-let slotAnimationId = 0;
+let rouletteWheelReady = false;
+let rouletteWheelRotation = 0;
+let rouletteIsSpinning = false;
+let slotsIsSpinning = false;
+let isPlaying = false;
 
-const $ = id => document.getElementById(id);
+/* =========================================================
+   3. DOM HELPERS
+========================================================= */
 
-const fmt = value =>
-  Number(value || 0).toLocaleString("ja-JP");
-
-const sleep = ms =>
-  new Promise(resolve => setTimeout(resolve, ms));
-
-/* ---------- UI ---------- */
-
-function message(text, error = false) {
-  const box = $("notice");
-
-  if (!box) return;
-
-  box.textContent = text;
-  box.classList.toggle("error", error);
+function $(selector) {
+  return document.querySelector(selector);
 }
 
-function go(page) {
-  document.querySelectorAll(".page").forEach(section => {
-    section.classList.add("hidden");
-  });
+function $$(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
 
-  const target = $("page-" + page);
+function setText(selector, value) {
+  const element = $(selector);
+  if (element) element.textContent = value ?? "";
+}
 
-  if (!target) return;
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    };
 
-  target.classList.remove("hidden");
-
-  document.querySelectorAll(".navbtn").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.page === page
-    );
-  });
-
-  if (page === "ranking") loadRanking(currentRanking);
-  if (page === "friends") loadFriends();
-  if (page === "profile") loadProfile();
-  if (page === "account") syncAccountUI();
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
+    return entities[char];
   });
 }
 
-document.querySelectorAll(".navbtn").forEach(button => {
-  button.addEventListener("click", () => {
-    go(button.dataset.page);
-  });
-});
+function formatCoins(value) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number)
+    ? Math.floor(number).toLocaleString("ja-JP")
+    : "0";
+}
 
-/* ---------- API ---------- */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* =========================================================
+   4. NOTICE MESSAGE
+========================================================= */
+
+function showNotice(message, type = "info") {
+  const notice = $("#notice");
+  if (!notice) return;
+
+  notice.textContent = message;
+  notice.className = `notice ${type}`;
+  notice.hidden = false;
+
+  if (notice._hideTimer) {
+    clearTimeout(notice._hideTimer);
+  }
+
+  notice._hideTimer = setTimeout(() => {
+    notice.hidden = true;
+  }, 5000);
+}
+
+/* =========================================================
+   5. API REQUEST
+========================================================= */
 
 async function api(action, extra = {}) {
-  if (!API_URL.startsWith("https://script.google.com/")) {
-    throw new Error(
-      "app.jsのAPI_URLをApps ScriptのウェブアプリURLに設定してください。"
-    );
-  }
+  const payload = {
+    action,
+    token,
+    ...extra
+  };
 
   let response;
 
@@ -87,15 +135,12 @@ async function api(action, extra = {}) {
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({
-        action,
-        token,
-        ...extra
-      })
+      body: JSON.stringify(payload),
+      redirect: "follow"
     });
   } catch (error) {
     throw new Error(
-      "サーバーに接続できません。Apps ScriptのURLと公開設定を確認してください。"
+      "サーバーに接続できませんでした。通信環境を確認してください。"
     );
   }
 
@@ -105,74 +150,226 @@ async function api(action, extra = {}) {
     data = await response.json();
   } catch (error) {
     throw new Error(
-      "APIの応答を読み取れません。Apps Scriptのデプロイを確認してください。"
+      "サーバーから正しい応答を受信できませんでした。Apps Scriptの公開設定を確認してください。"
     );
   }
 
-  if (!data.ok) {
-    throw new Error(data.error || "処理に失敗しました。");
+  if (!response.ok) {
+    throw new Error(data.message || "通信に失敗しました。");
+  }
+
+  if (data.ok === false || data.success === false) {
+    throw new Error(
+      data.message || data.error || "処理に失敗しました。"
+    );
   }
 
   return data;
 }
 
-/* ---------- Account ---------- */
+/* =========================================================
+   6. USER DATA
+========================================================= */
 
-function accountMode(mode) {
-  accountAction = mode;
+function getUsername(user = currentUser) {
+  if (!user) return "";
 
-  $("accountSubmit").textContent =
-    mode === "login"
-      ? "ログイン"
-      : "アカウントを作成";
-
-  $("password").autocomplete =
-    mode === "login"
-      ? "current-password"
-      : "new-password";
+  return (
+    user.username ??
+    user.name ??
+    user.displayName ??
+    ""
+  );
 }
 
-$("accountForm").addEventListener("submit", async event => {
+function getCoins(user = currentUser) {
+  if (!user) return 0;
+
+  return Number(
+    user.coins ??
+    user.balance ??
+    user.points ??
+    0
+  );
+}
+
+function renderUser() {
+  const loggedIn = Boolean(currentUser);
+
+  const accountForm = $("#accountForm");
+  if (accountForm) {
+    accountForm.hidden = loggedIn;
+  }
+
+  const logoutButton = $("#logoutButton");
+  if (logoutButton) {
+    logoutButton.hidden = !loggedIn;
+  }
+
+  const username = getUsername();
+  const coins = getCoins();
+
+  setText("#balance", formatCoins(coins));
+  setText("#homeCoins", formatCoins(coins));
+
+  const usernameDisplay = $("#profileInfo");
+  if (usernameDisplay && !loggedIn) {
+    usernameDisplay.textContent = "ログインしてください。";
+  }
+
+  $$("[data-username]").forEach((element) => {
+    element.textContent = username;
+  });
+
+  $$("[data-coins]").forEach((element) => {
+    element.textContent = formatCoins(coins);
+  });
+
+  document.body.classList.toggle("logged-in", loggedIn);
+  document.body.classList.toggle("logged-out", !loggedIn);
+
+  updateAuthControls();
+}
+
+function updateAuthControls() {
+  const loggedIn = Boolean(currentUser);
+
+  $$("[data-requires-login]").forEach((element) => {
+    element.disabled = !loggedIn;
+    element.classList.toggle("disabled", !loggedIn);
+  });
+}
+
+/* =========================================================
+   7. PAGE NAVIGATION
+========================================================= */
+
+function showPage(pageName) {
+  const pageId = `page-${pageName}`;
+
+  $$(".page").forEach((page) => {
+    page.classList.toggle("active", page.id === pageId);
+    page.hidden = page.id !== pageId;
+  });
+
+  $$(".navbtn").forEach((button) => {
+    const active = button.dataset.page === pageName;
+
+    button.classList.toggle("active", active);
+
+    if (active) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+
+  if (pageName === "ranking") loadRanking();
+  if (pageName === "friends") loadFriends();
+  if (pageName === "profile") loadHistory();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+function setupNavigation() {
+  $$(".navbtn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const page = button.dataset.page;
+      if (page) showPage(page);
+    });
+  });
+
+  $$("[data-goto]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const page = button.dataset.goto;
+      if (page) showPage(page);
+    });
+  });
+}
+
+/* =========================================================
+   8. REGISTER / LOGIN
+========================================================= */
+
+async function handleAccountSubmit(event) {
   event.preventDefault();
 
-  const button = $("accountSubmit");
+  const submitButton = $("#accountSubmit");
+  const usernameInput = $("#username");
+  const passwordInput = $("#password");
 
-  button.disabled = true;
+  if (!usernameInput || !passwordInput) return;
+
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!username || !password) {
+    showNotice("ユーザー名とパスワードを入力してください。", "error");
+    return;
+  }
+
+  if (submitButton) submitButton.disabled = true;
 
   try {
-    const data = await api(accountAction, {
-      username: $("username").value.trim(),
-      password: $("password").value
+    /*
+      登録・ログインを同じフォームから扱うため、
+      HTML側の data-action="register" があれば登録、
+      それ以外はログインとして処理します。
+    */
+    const action =
+      submitButton?.dataset.action ||
+      $("#accountForm")?.dataset.action ||
+      "login";
+
+    const data = await api(action, {
+      username,
+      password
     });
 
-    token = data.session.token;
-    currentUser = data.session.user;
+    if (data.token) {
+      token = data.token;
+      localStorage.setItem(SESSION_KEY, token);
+    }
 
-    localStorage.setItem("cr_token", token);
+    currentUser =
+      data.user ??
+      data.account ??
+      data.data?.user ??
+      null;
 
-    $("password").value = "";
+    if (!currentUser && token) {
+      const me = await api("me");
+      currentUser =
+        me.user ??
+        me.account ??
+        me.data?.user ??
+        null;
+    }
+
+    if (!currentUser) {
+      throw new Error("ユーザー情報を取得できませんでした。");
+    }
 
     renderUser();
 
-    message(
-      accountAction === "login"
-        ? "ログインしました。"
-        : "登録完了！10,000コインを獲得しました。"
+    passwordInput.value = "";
+
+    showNotice(
+      action === "register"
+        ? "アカウントを作成しました！"
+        : "ログインしました！",
+      "success"
     );
 
-    go("home");
+    showPage("home");
   } catch (error) {
-    message(error.message, true);
+    showNotice(error.message || "アカウント処理に失敗しました。", "error");
   } finally {
-    button.disabled = false;
+    if (submitButton) submitButton.disabled = false;
   }
-});
-
-function syncAccountUI() {
-  $("logoutButton").classList.toggle(
-    "hidden",
-    !token
-  );
 }
 
 async function logout() {
@@ -181,45 +378,26 @@ async function logout() {
       await api("logout");
     }
   } catch (error) {
-    // 接続できなくても端末側のログイン情報を破棄
+    console.warn("Logout API error:", error);
+  } finally {
+    token = "";
+    currentUser = null;
+
+    localStorage.removeItem(SESSION_KEY);
+
+    renderUser();
+    showPage("home");
+    showNotice("ログアウトしました。", "success");
   }
-
-  token = "";
-  currentUser = null;
-
-  localStorage.removeItem("cr_token");
-
-  renderUser();
-  syncAccountUI();
-
-  message("ログアウトしました。");
-
-  go("home");
 }
 
-function renderUser() {
-  const loggedIn = !!currentUser;
+/* =========================================================
+   9. SESSION RESTORE
+========================================================= */
 
-  $("balance").textContent = loggedIn
-    ? fmt(currentUser.coins) + " COINS"
-    : "GUEST";
-
-  $("homeCoins").textContent = loggedIn
-    ? fmt(currentUser.coins)
-    : "---";
-
-  $("homeGames").textContent = loggedIn
-    ? fmt(currentUser.games)
-    : "---";
-
-  $("logoutButton").classList.toggle(
-    "hidden",
-    !token
-  );
-}
-
-async function refreshMe() {
+async function restoreSession() {
   if (!token) {
+    currentUser = null;
     renderUser();
     return;
   }
@@ -227,389 +405,648 @@ async function refreshMe() {
   try {
     const data = await api("me");
 
-    currentUser = data.user;
+    currentUser =
+      data.user ??
+      data.account ??
+      data.data?.user ??
+      null;
+
+    if (!currentUser) {
+      throw new Error("セッションが無効です。");
+    }
 
     renderUser();
   } catch (error) {
-    // 通信エラーだけでセッションを勝手に破棄しない
-    message(error.message, true);
+    token = "";
+    currentUser = null;
+
+    localStorage.removeItem(SESSION_KEY);
     renderUser();
+
+    console.warn("Session restore failed:", error.message);
   }
 }
 
-/* ---------- Games ---------- */
+/* =========================================================
+   10. PLAY COMMON
+========================================================= */
+
+function getBet(inputSelector) {
+  const input = $(inputSelector);
+  const bet = Number(input?.value);
+
+  if (!Number.isFinite(bet) || !Number.isInteger(bet) || bet <= 0) {
+    throw new Error("ベット額は1以上の整数で入力してください。");
+  }
+
+  if (bet > getCoins()) {
+    throw new Error("コインが足りません。");
+  }
+
+  return bet;
+}
+
+function setPlayButtonsDisabled(disabled) {
+  const rouletteButton = $("#rouletteButton");
+  const slotsButton = $("#slotsButton");
+
+  if (rouletteButton) rouletteButton.disabled = disabled;
+  if (slotsButton) slotsButton.disabled = disabled;
+}
 
 async function play(game) {
-  if (busy) return;
-
-  if (!token) {
-    message(
-      "プレイするにはアカウント登録・ログインが必要です。",
-      true
-    );
-
-    go("account");
+  if (!currentUser || !token) {
+    showNotice("ゲームを遊ぶにはログインしてください。", "error");
+    showPage("account");
     return;
   }
 
-  const betInput = $(
-    game === "roulette"
-      ? "rouletteBet"
-      : "slotsBet"
-  );
+  if (isPlaying) return;
 
-  const bet = Number(betInput.value);
+  const isRoulette = game === "roulette";
+  const betSelector = isRoulette ? "#rouletteBet" : "#slotsBet";
+  const buttonSelector = isRoulette ? "#rouletteButton" : "#slotsButton";
 
-  if (
-    !Number.isInteger(bet) ||
-    bet < 10 ||
-    bet > 10000
-  ) {
-    message(
-      "賭けコインは10〜10,000枚の整数で入力してください。",
-      true
-    );
-    return;
-  }
-
-  const extra = {
-    game,
-    bet
-  };
-
-  if (game === "roulette") {
-    extra.choice = $("rouletteChoice").value;
-  }
-
-  const button = $(
-    game === "roulette"
-      ? "rouletteButton"
-      : "slotsButton"
-  );
-
-  const originalText = button.textContent;
-
-  busy = true;
-
-  button.disabled = true;
-  button.textContent =
-    game === "roulette"
-      ? "SPINNING..."
-      : "SPINNING...";
+  let bet;
 
   try {
-    // サーバーでゲーム結果を確定
-    message("ゲームの準備中...");
+    bet = getBet(betSelector);
+  } catch (error) {
+    showNotice(error.message, "error");
+    return;
+  }
 
+  let extra = { game, bet };
+
+  if (isRoulette) {
+    const choice = $("#rouletteChoice")?.value;
+
+    if (!["red", "black", "green"].includes(choice)) {
+      showNotice("賭ける色を選択してください。", "error");
+      return;
+    }
+
+    extra.choice = choice;
+  }
+
+  isPlaying = true;
+  setPlayButtonsDisabled(true);
+
+  const button = $(buttonSelector);
+  const originalButtonText = button?.textContent;
+
+  if (button) {
+    button.dataset.originalText = originalButtonText || "";
+    button.textContent = isRoulette ? "ルーレット回転中..." : "スロット回転中...";
+  }
+
+  try {
+    /*
+      サーバーでゲーム結果とコイン更新を確定。
+      画面上の残高表示は演出が終わるまで更新しません。
+    */
     const data = await api("play", extra);
 
-    if (!data.result || !data.user) {
-      throw new Error(
-        "ゲーム結果を正しく取得できませんでした。"
-      );
+    const result = data.result ?? data.data?.result;
+
+    if (!result) {
+      throw new Error("ゲーム結果を取得できませんでした。");
     }
 
-    // 残高はサーバーから返された値を使用
-    currentUser = data.user;
+    if (isRoulette) {
+      await animateRoulette(result, bet);
+    } else {
+      await animateSlots(result, bet);
+    }
+
+    currentUser =
+      data.user ??
+      data.data?.user ??
+      currentUser;
+
     renderUser();
 
-    // 結果に合わせて回転演出
-    if (game === "roulette") {
-      await animateRoulette(data.result, bet);
-    } else {
-      await animateSlots(data.result, bet);
+    if (data.user?.gamesPlayed != null) {
+      setText("#homeGames", formatCoins(data.user.gamesPlayed));
     }
+
+    const message = result.message || "ゲームが終了しました。";
+    showNotice(message, Number(result.payout ?? 0) > bet ? "success" : "info");
+
   } catch (error) {
-    message(error.message, true);
+    showNotice(error.message || "ゲームの処理に失敗しました。", "error");
   } finally {
-    busy = false;
-    button.disabled = false;
-    button.textContent = originalText;
+    isPlaying = false;
+    setPlayButtonsDisabled(false);
+
+    if (button) {
+      button.textContent =
+        button.dataset.originalText ||
+        (isRoulette ? "スピンする" : "スロットを回す");
+    }
   }
 }
 
-/* ---------- Roulette Animation ---------- */
+/* =========================================================
+   11. ROULETTE COLORS
+========================================================= */
 
-async function animateRoulette(result, bet) {
-  const wheel = document.querySelector(
-    "#page-roulette .wheel"
-  );
+function rouletteColor(number) {
+  if (Number(number) === 0) return "green";
+
+  return ROULETTE_RED_NUMBERS.has(Number(number))
+    ? "red"
+    : "black";
+}
+
+function rouletteColorJapanese(color) {
+  const colors = {
+    red: "RED",
+    black: "BLACK",
+    green: "GREEN"
+  };
+
+  return colors[color] || String(color || "").toUpperCase();
+}
+
+/* =========================================================
+   12. ROULETTE WHEEL SETUP
+========================================================= */
+
+function setupRouletteWheel() {
+  const roulettePage = $("#page-roulette");
+  if (!roulettePage) return null;
+
+  let wheel = roulettePage.querySelector(".wheel");
 
   if (!wheel) {
-    showRouletteResult(result, bet);
-    return;
+    wheel = $("#rouletteWheel");
   }
 
-  const resultPanel = $("rouletteResult");
+  if (!wheel) return null;
 
-  resultPanel.textContent = "";
+  /*
+    盤面を包むラッパーを作成。
+    既に作成済みなら再利用します。
+  */
+  let wrap = wheel.closest(".wheel-wrap");
 
-  $("wheelResult").textContent = "★";
-  $("wheelColor").textContent = "SPINNING";
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "wheel-wrap";
 
-  message("ルーレットが回転中...");
+    wheel.parentNode.insertBefore(wrap, wheel);
+    wrap.appendChild(wheel);
+  }
 
-  // 前回の角度を維持しながら回転を追加
-  const startRotation = wheelRotation;
+  let pointer = wrap.querySelector(".roulette-pointer");
 
-  const extraRotation =
-    360 * 7 + Math.random() * 360;
+  if (!pointer) {
+    pointer = document.createElement("div");
+    pointer.className = "roulette-pointer";
+    pointer.setAttribute("aria-hidden", "true");
+    wrap.appendChild(pointer);
+  }
 
-  wheelRotation = startRotation + extraRotation;
+  /*
+    数字を作り直す。
+    CSSの盤面デザインはJS側の背景で上書きします。
+  */
+  wheel.querySelectorAll(".roulette-number").forEach((node) => {
+    node.remove();
+  });
 
-  // 現在位置に固定してからアニメーション開始
-  wheel.style.transition = "none";
-  wheel.style.transform =
-    `rotate(${startRotation}deg)`;
+  const segment = 360 / ROULETTE_NUMBERS.length;
 
-  void wheel.offsetWidth;
+  const stops = ROULETTE_NUMBERS.map((number, index) => {
+    const start = index * segment;
+    const end = (index + 1) * segment;
 
-  wheel.style.transition =
-    "transform 4.5s cubic-bezier(.10,.68,.12,1)";
+    const color = rouletteColor(number);
+    const colorCode =
+      color === "red"
+        ? "#a51d2d"
+        : color === "black"
+          ? "#161616"
+          : "#08764d";
 
-  wheel.style.transform =
-    `rotate(${wheelRotation}deg)`;
+    return `${colorCode} ${start}deg ${end}deg`;
+  });
 
-  await sleep(4700);
+  wheel.style.background = `conic-gradient(from ${-segment / 2}deg, ${stops.join(",")})`;
+  wheel.style.position = "relative";
+  wheel.style.borderRadius = "50%";
+  wheel.style.overflow = "hidden";
+  wheel.style.willChange = "transform";
 
-  showRouletteResult(result, bet);
+  /*
+    盤面の描画サイズを取得。
+    レイアウト前の場合はCSS設定値を基準にします。
+  */
+  const rect = wheel.getBoundingClientRect();
+  const size = rect.width || wheel.clientWidth || 270;
+  const radius = size * 0.405;
+
+  ROULETTE_NUMBERS.forEach((number, index) => {
+    const label = document.createElement("span");
+    label.className = "roulette-number";
+    label.textContent = String(number);
+
+    const angle = index * segment;
+
+    label.style.transform =
+      `translate(-50%, -50%) rotate(${angle}deg) translateY(-${radius}px) rotate(${-angle}deg)`;
+
+    label.style.position = "absolute";
+    label.style.left = "50%";
+    label.style.top = "50%";
+    label.style.zIndex = "1";
+    label.style.pointerEvents = "none";
+
+    wheel.appendChild(label);
+  });
+
+  let center = wrap.querySelector(".wheel-center");
+
+  if (!center) {
+    center = wheel.querySelector(".wheel-center");
+  }
+
+  if (center) {
+    center.style.position = "absolute";
+    center.style.left = "50%";
+    center.style.top = "50%";
+    center.style.transform = "translate(-50%, -50%)";
+    center.style.zIndex = "2";
+  }
+
+  wheel.style.transform = `rotate(${rouletteWheelRotation}deg)`;
+
+  rouletteWheelReady = true;
+  return wheel;
 }
 
-/* ---------- Roulette Result ---------- */
+/* =========================================================
+   13. ROULETTE ANIMATION
+========================================================= */
+
+async function animateRoulette(result, bet) {
+  if (rouletteIsSpinning) return;
+
+  rouletteIsSpinning = true;
+
+  try {
+    const wheel = setupRouletteWheel();
+
+    if (!wheel) {
+      showRouletteResult(result, bet);
+      return;
+    }
+
+    const winningNumber = Number(result.number);
+
+    const winningIndex = ROULETTE_NUMBERS.indexOf(winningNumber);
+
+    if (winningIndex < 0) {
+      showRouletteResult(result, bet);
+      return;
+    }
+
+    const segment = 360 / ROULETTE_NUMBERS.length;
+
+    /*
+      盤面の各数字の中心をポインターの真下へ合わせます。
+      盤面の0番目の区画は上を基準に並んでいます。
+    */
+    const targetAngle = -(winningIndex * segment);
+
+    const normalizedTarget =
+      ((targetAngle % 360) + 360) % 360;
+
+    const currentNormalized =
+      ((rouletteWheelRotation % 360) + 360) % 360;
+
+    const additionalRotation =
+      (normalizedTarget - currentNormalized + 360) % 360;
+
+    const totalRotation =
+      rouletteWheelRotation +
+      360 * 7 +
+      additionalRotation;
+
+    wheel.style.transition = "none";
+    wheel.style.transform = `rotate(${rouletteWheelRotation}deg)`;
+
+    /*
+      ブラウザに初期位置を反映させてから回転を開始。
+    */
+    void wheel.offsetWidth;
+
+    wheel.style.transition =
+      `transform ${ROULETTE_ANIMATION_DURATION - 200}ms cubic-bezier(0.12, 0.78, 0.12, 1)`;
+
+    wheel.style.transform = `rotate(${totalRotation}deg)`;
+
+    rouletteWheelRotation = totalRotation;
+
+    await sleep(ROULETTE_ANIMATION_DURATION);
+
+    wheel.style.transition = "none";
+
+    showRouletteResult(result, bet);
+
+  } finally {
+    rouletteIsSpinning = false;
+  }
+}
+
+/* =========================================================
+   14. ROULETTE RESULT
+========================================================= */
 
 function showRouletteResult(result, bet) {
-  $("wheelResult").textContent = result.number;
+  const number = Number(result.number);
+  const color = rouletteColor(number);
+  const payout = Number(result.payout ?? 0);
+  const net = payout - Number(bet);
 
-  $("wheelColor").textContent =
-    String(result.color || "").toUpperCase();
+  const wheelResult = $("#wheelResult");
+  if (wheelResult) {
+    wheelResult.textContent = String(number);
+    wheelResult.dataset.color = color;
+  }
 
-  const net = Number(result.payout) - bet;
+  const wheelColor = $("#wheelColor");
+  if (wheelColor) {
+    wheelColor.textContent = rouletteColorJapanese(color);
+    wheelColor.dataset.color = color;
+  }
 
-  $("rouletteResult").textContent =
-    result.message +
-    " — " +
-    fmt(result.payout) +
-    "コイン返還 / " +
-    (net >= 0 ? "+" : "") +
-    fmt(net) +
-    "コイン";
+  const resultArea = $("#rouletteResult");
 
-  message(
-    "ルーレットの結果：" +
-    result.number +
-    " / " +
-    result.color
-  );
+  if (resultArea) {
+    resultArea.innerHTML = `
+      <div class="result-number result-${escapeHTML(color)}">
+        ${escapeHTML(number)}
+      </div>
+      <div class="result-color">
+        ${escapeHTML(rouletteColorJapanese(color))}
+      </div>
+      <div class="result-message">
+        ${escapeHTML(result.message || "結果が確定しました。")}
+      </div>
+      <div class="result-payout">
+        払い戻し：<strong>${formatCoins(payout)}</strong> コイン
+      </div>
+      <div class="result-net ${net >= 0 ? "profit" : "loss"}">
+        ${net >= 0 ? "+" : ""}${formatCoins(net)} コイン
+      </div>
+    `;
+
+    resultArea.classList.remove("result-pop");
+    void resultArea.offsetWidth;
+    resultArea.classList.add("result-pop");
+  }
 }
 
-/* ---------- Slot Animation ---------- */
+/* =========================================================
+   15. SLOTS ANIMATION
+========================================================= */
 
 async function animateSlots(result, bet) {
-  const reels = [
-    $("reel0"),
-    $("reel1"),
-    $("reel2")
-  ];
+  if (slotsIsSpinning) return;
 
-  const symbols = [
-    "🍒",
-    "🔔",
-    "⭐",
-    "🍋",
-    "7️⃣"
-  ];
-
-  if (
-    !Array.isArray(result.reels) ||
-    result.reels.length !== 3 ||
-    reels.some(reel => !reel)
-  ) {
-    showSlotsResult(result, bet);
-    return;
-  }
-
-  // この演出の識別番号
-  const animationId = ++slotAnimationId;
-
-  $("slotsResult").textContent = "";
-
-  message("スロットが回転中...");
-
-  reels.forEach(reel => {
-    reel.classList.remove("reel-stopped");
-    reel.classList.add("spinning");
-  });
-
-  // 左・中央・右の順にリールを停止
-  for (let i = 0; i < reels.length; i++) {
-    const reel = reels[i];
-
-    const duration = 1400 + i * 650;
-    const interval = 65;
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < duration) {
-      if (animationId !== slotAnimationId) {
-        return;
-      }
-
-      reel.textContent =
-        symbols[
-          Math.floor(Math.random() * symbols.length)
-        ];
-
-      await sleep(interval);
-    }
-
-    if (animationId !== slotAnimationId) {
-      return;
-    }
-
-    // 最後は必ずサーバーの確定結果に合わせる
-    reel.textContent = result.reels[i];
-
-    reel.classList.remove("spinning");
-    reel.classList.add("reel-stopped");
-
-    await sleep(220);
-
-    reel.classList.remove("reel-stopped");
-  }
-
-  await sleep(250);
-
-  showSlotsResult(result, bet);
-}
-
-/* ---------- Slot Result ---------- */
-
-function showSlotsResult(result, bet) {
-  result.reels.forEach((symbol, index) => {
-    const reel = $("reel" + index);
-
-    if (!reel) return;
-
-    reel.textContent = symbol;
-
-    reel.classList.remove("spinning");
-    reel.classList.remove("reel-stopped");
-  });
-
-  const net = Number(result.payout) - bet;
-
-  $("slotsResult").textContent =
-    result.message +
-    " — " +
-    fmt(result.payout) +
-    "コイン返還 / " +
-    (net >= 0 ? "+" : "") +
-    fmt(net) +
-    "コイン";
-
-  message("スロットの結果：" + result.message);
-}
-
-/* ---------- Ranking ---------- */
-
-async function loadRanking(mode) {
-  currentRanking = mode;
-
-  $("rankingList").innerHTML =
-    '<p class="muted">ランキングを読み込み中...</p>';
+  slotsIsSpinning = true;
 
   try {
-    const data = await api("ranking", { mode });
+    const reels = Array.isArray(result.reels)
+      ? result.reels
+      : ["🍒", "🍋", "⭐"];
 
-    if (!data.ranking.length) {
-      $("rankingList").innerHTML =
-        '<p class="muted">まだランキングデータがありません。</p>';
-      return;
+    const reelElements = [
+      $("#reel0"),
+      $("#reel1"),
+      $("#reel2")
+    ];
+
+    const slotSymbols = SLOT_SYMBOLS;
+
+    reelElements.forEach((reel, index) => {
+      if (!reel) return;
+
+      reel.classList.remove("slot-stop", "slot-win");
+      reel.classList.add("slot-spinning");
+
+      reel.textContent = slotSymbols[index % slotSymbols.length];
+    });
+
+    /*
+      リールを順番に止め、サーバー確定結果を表示します。
+    */
+    for (let index = 0; index < reelElements.length; index++) {
+      const reel = reelElements[index];
+
+      if (!reel) continue;
+
+      const interval = setInterval(() => {
+        reel.textContent =
+          slotSymbols[Math.floor(Math.random() * slotSymbols.length)];
+      }, 80);
+
+      await sleep(700 + index * 400);
+
+      clearInterval(interval);
+
+      reel.textContent = String(reels[index] ?? "❔");
+      reel.classList.remove("slot-spinning");
+      reel.classList.add("slot-stop");
+
+      await sleep(180);
     }
 
-    $("rankingList").innerHTML =
-      data.ranking.map((user, index) => `
-        <div class="rankrow">
-          <div class="ranknum">${index + 1}</div>
-          <div>
-            <strong>${esc(user.username)}</strong>
-            <div class="muted">
-              ${index === 0 ? "ROYAL CHAMPION" : "PLAYER"}
-            </div>
-          </div>
-          <strong class="gold">${fmt(user.score)}</strong>
+    const payout = Number(result.payout ?? 0);
+    const isWin = payout > Number(bet);
+
+    if (isWin) {
+      reelElements.forEach((reel) => {
+        if (reel) reel.classList.add("slot-win");
+      });
+    }
+
+    const resultArea = $("#slotsResult");
+
+    if (resultArea) {
+      const net = payout - Number(bet);
+
+      resultArea.innerHTML = `
+        <div class="slots-result-message">
+          ${escapeHTML(result.message || "スロットの結果")}
         </div>
-      `).join("");
-  } catch (error) {
-    $("rankingList").textContent = error.message;
+        <div class="slots-result-payout">
+          払い戻し：<strong>${formatCoins(payout)}</strong> コイン
+        </div>
+        <div class="slots-result-net ${net >= 0 ? "profit" : "loss"}">
+          ${net >= 0 ? "+" : ""}${formatCoins(net)} コイン
+        </div>
+      `;
+
+      resultArea.classList.remove("result-pop");
+      void resultArea.offsetWidth;
+      resultArea.classList.add("result-pop");
+    }
+
+    await sleep(250);
+
+  } finally {
+    $$(".slot-spinning").forEach((reel) => {
+      reel.classList.remove("slot-spinning");
+    });
+
+    slotsIsSpinning = false;
   }
 }
 
-/* ---------- Friends ---------- */
+/* =========================================================
+   16. RANKING
+========================================================= */
+
+async function loadRanking() {
+  const list = $("#rankingList");
+  if (!list) return;
+
+  list.innerHTML = "<p>ランキングを読み込み中...</p>";
+
+  try {
+    const data = await api("ranking");
+    const ranking =
+      data.ranking ??
+      data.users ??
+      data.data?.ranking ??
+      [];
+
+    if (!Array.isArray(ranking) || ranking.length === 0) {
+      list.innerHTML = "<p>ランキングデータがありません。</p>";
+      return;
+    }
+
+    list.innerHTML = ranking.map((user, index) => {
+      const name = user.username ?? user.name ?? "プレイヤー";
+      const coins = user.coins ?? user.balance ?? 0;
+
+      const rankClass =
+        index === 0 ? "rank-first" :
+        index === 1 ? "rank-second" :
+        index === 2 ? "rank-third" : "";
+
+      return `
+        <div class="ranking-item ${rankClass}">
+          <div class="ranking-position">${index + 1}</div>
+          <div class="ranking-name">${escapeHTML(name)}</div>
+          <div class="ranking-coins">${formatCoins(coins)} COINS</div>
+        </div>
+      `;
+    }).join("");
+
+  } catch (error) {
+    list.innerHTML = `
+      <p class="error-message">
+        ${escapeHTML(error.message || "ランキングを取得できませんでした。")}
+      </p>
+    `;
+  }
+}
+
+/* =========================================================
+   17. FRIEND SEARCH
+========================================================= */
 
 async function searchFriends() {
-  if (!token) {
-    message("フレンド機能にはログインが必要です。", true);
+  const input = $("#friendQuery");
+  const results = $("#friendSearchResults");
+
+  if (!input || !results) return;
+
+  const query = input.value.trim();
+
+  if (!query) {
+    showNotice("検索するユーザー名を入力してください。", "error");
     return;
   }
 
-  try {
-    const data = await api("friendSearch", {
-      query: $("friendQuery").value.trim()
-    });
+  results.innerHTML = "<p>検索中...</p>";
 
-    if (!data.users.length) {
-      $("friendSearchResults").innerHTML =
-        '<p class="muted">ユーザーが見つかりません。</p>';
+  try {
+    const data = await api("friendSearch", { query });
+
+    const users =
+      data.users ??
+      data.results ??
+      data.data?.users ??
+      [];
+
+    if (!Array.isArray(users) || users.length === 0) {
+      results.innerHTML = "<p>ユーザーが見つかりませんでした。</p>";
       return;
     }
 
-    $("friendSearchResults").innerHTML =
-      data.users.map(user => `
-        <div class="rankrow">
-          <div>♟</div>
-          <div>${esc(user.username)}</div>
-          <button
-            class="btn small"
-            data-friend-request="${esc(user.id)}"
-          >申請</button>
-        </div>
-      `).join("");
+    results.innerHTML = users.map((user) => {
+      const name = user.username ?? user.name ?? "プレイヤー";
+      const id = user.username ?? user.name ?? "";
 
-    $("friendSearchResults")
-      .querySelectorAll("[data-friend-request]")
-      .forEach(button => {
-        button.addEventListener("click", () => {
-          sendRequest(button.dataset.friendRequest);
-        });
-      });
+      return `
+        <div class="friend-item">
+          <div class="friend-name">${escapeHTML(name)}</div>
+          <button
+            type="button"
+            class="friend-request-button"
+            data-friend-request="${escapeHTML(id)}"
+          >
+            フレンド申請
+          </button>
+        </div>
+      `;
+    }).join("");
+
   } catch (error) {
-    message(error.message, true);
+    results.innerHTML = `
+      <p class="error-message">${escapeHTML(error.message)}</p>
+    `;
   }
 }
 
-async function sendRequest(targetId) {
-  try {
-    const data = await api("friendRequest", {
-      targetId
-    });
+async function sendFriendRequest(username) {
+  if (!username) return;
 
-    message(data.message);
+  try {
+    await api("friendRequest", { username });
+
+    showNotice(`${username} にフレンド申請を送りました。`, "success");
 
     await loadFriends();
+
   } catch (error) {
-    message(error.message, true);
+    showNotice(error.message || "フレンド申請に失敗しました。", "error");
   }
 }
 
+/* =========================================================
+   18. FRIEND LIST / REQUESTS
+========================================================= */
+
 async function loadFriends() {
-  if (!token) {
-    $("incomingRequests").innerHTML =
-      '<p class="muted">ログインしてください。</p>';
+  const requestsElement = $("#incomingRequests");
+  const friendsElement = $("#friendsList");
 
-    $("friendsList").innerHTML = "";
+  if (!requestsElement && !friendsElement) return;
 
-    $("transferTarget").innerHTML =
-      '<option value="">フレンドを選択</option>';
+  if (!currentUser) {
+    if (requestsElement) {
+      requestsElement.innerHTML = "<p>ログインしてください。</p>";
+    }
+
+    if (friendsElement) {
+      friendsElement.innerHTML = "<p>ログインしてください。</p>";
+    }
 
     return;
   }
@@ -617,247 +1054,401 @@ async function loadFriends() {
   try {
     const data = await api("friends");
 
-    $("incomingRequests").innerHTML =
-      data.incoming.length
-        ? data.incoming.map(request => `
-            <div class="rankrow">
-              <div>✉</div>
-              <div>${esc(request.username)}</div>
-              <div class="actions">
-                <button
-                  class="btn small"
-                  data-request-id="${esc(request.id)}"
-                  data-accept="true"
-                >承認</button>
+    const requests =
+      data.requests ??
+      data.incomingRequests ??
+      data.data?.requests ??
+      [];
 
+    const friends =
+      data.friends ??
+      data.data?.friends ??
+      [];
+
+    if (requestsElement) {
+      if (!Array.isArray(requests) || requests.length === 0) {
+        requestsElement.innerHTML = "<p>新しい申請はありません。</p>";
+      } else {
+        requestsElement.innerHTML = requests.map((request) => {
+          const name =
+            request.username ??
+            request.from ??
+            request.name ??
+            "プレイヤー";
+
+          return `
+            <div class="friend-item">
+              <span>${escapeHTML(name)}</span>
+              <div class="friend-actions">
                 <button
-                  class="btn secondary small"
-                  data-request-id="${esc(request.id)}"
-                  data-accept="false"
+                  type="button"
+                  data-friend-respond="accept"
+                  data-friend-name="${escapeHTML(name)}"
+                >承認</button>
+                <button
+                  type="button"
+                  data-friend-respond="reject"
+                  data-friend-name="${escapeHTML(name)}"
                 >拒否</button>
               </div>
             </div>
-          `).join("")
-        : '<p class="muted">新しい申請はありません。</p>';
+          `;
+        }).join("");
+      }
+    }
 
-    $("incomingRequests")
-      .querySelectorAll("[data-request-id]")
-      .forEach(button => {
-        button.addEventListener("click", () => {
-          respondRequest(
-            button.dataset.requestId,
-            button.dataset.accept === "true"
-          );
-        });
-      });
+    if (friendsElement) {
+      if (!Array.isArray(friends) || friends.length === 0) {
+        friendsElement.innerHTML = "<p>フレンドがまだいません。</p>";
+      } else {
+        friendsElement.innerHTML = friends.map((friend) => {
+          const name =
+            friend.username ??
+            friend.name ??
+            friend.friend ??
+            "プレイヤー";
 
-    $("friendsList").innerHTML =
-      data.friends.length
-        ? data.friends.map(friend => `
-            <div class="rankrow">
-              <div>♟</div>
-              <div>${esc(friend.username)}</div>
-              <span class="gold">FRIEND</span>
+          return `
+            <div class="friend-item">
+              <span class="friend-name">${escapeHTML(name)}</span>
             </div>
-          `).join("")
-        : '<p class="muted">フレンドはまだいません。</p>';
+          `;
+        }).join("");
+      }
+    }
 
-    $("transferTarget").innerHTML =
-      '<option value="">フレンドを選択</option>' +
-      data.friends.map(friend => `
-        <option value="${esc(friend.id)}">
-          ${esc(friend.username)}
-        </option>
-      `).join("");
+    updateTransferFriendOptions(friends);
+
   } catch (error) {
-    message(error.message, true);
+    if (requestsElement) {
+      requestsElement.innerHTML =
+        `<p class="error-message">${escapeHTML(error.message)}</p>`;
+    }
+
+    if (friendsElement) {
+      friendsElement.innerHTML =
+        `<p class="error-message">${escapeHTML(error.message)}</p>`;
+    }
   }
 }
 
-async function respondRequest(requestId, accept) {
+async function respondFriendRequest(username, response) {
   try {
     await api("friendRespond", {
-      requestId,
-      accept
+      username,
+      response
     });
 
-    message(
-      accept
+    showNotice(
+      response === "accept"
         ? "フレンド申請を承認しました。"
-        : "フレンド申請を拒否しました。"
+        : "フレンド申請を拒否しました。",
+      "success"
     );
 
     await loadFriends();
+
   } catch (error) {
-    message(error.message, true);
+    showNotice(error.message || "申請を処理できませんでした。", "error");
   }
 }
 
+function updateTransferFriendOptions(friends) {
+  const select = $("#transferTarget");
+  if (!select || !Array.isArray(friends)) return;
+
+  const selected = select.value;
+
+  select.innerHTML = '<option value="">送金先を選択</option>';
+
+  friends.forEach((friend) => {
+    const name =
+      friend.username ??
+      friend.name ??
+      friend.friend ??
+      "";
+
+    if (!name) return;
+
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+
+    select.appendChild(option);
+  });
+
+  if (selected) select.value = selected;
+}
+
+/* =========================================================
+   19. COIN TRANSFER
+========================================================= */
+
 async function transferCoins() {
-  const targetId = $("transferTarget").value;
-  const amount = Number($("transferAmount").value);
-
-  if (!targetId) {
-    message("送付先のフレンドを選択してください。", true);
+  if (!currentUser) {
+    showNotice("ログインしてください。", "error");
     return;
   }
 
-  if (
-    !Number.isInteger(amount) ||
-    amount < 1 ||
-    amount > 50000
-  ) {
-    message("送付額は1〜50,000枚の整数で入力してください。", true);
+  const target = $("#transferTarget")?.value;
+  const amount = Number($("#transferAmount")?.value);
+
+  if (!target) {
+    showNotice("送金先を選択してください。", "error");
     return;
   }
 
-  if (!confirm(fmt(amount) + "コインを送付しますか？")) {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    showNotice("送金額は1以上の整数で入力してください。", "error");
+    return;
+  }
+
+  if (amount > getCoins()) {
+    showNotice("コインが足りません。", "error");
     return;
   }
 
   try {
     const data = await api("transfer", {
-      targetId,
+      username: target,
       amount
     });
 
-    currentUser = data.user;
+    currentUser =
+      data.user ??
+      data.data?.user ??
+      currentUser;
 
     renderUser();
 
-    message(data.message);
+    const amountInput = $("#transferAmount");
+    if (amountInput) amountInput.value = "";
+
+    showNotice(
+      `${target} に ${formatCoins(amount)} コインを送金しました。`,
+      "success"
+    );
+
+    await loadHistory();
+
   } catch (error) {
-    message(error.message, true);
+    showNotice(error.message || "送金に失敗しました。", "error");
   }
 }
 
-/* ---------- Profile & History ---------- */
+/* =========================================================
+   20. PLAY HISTORY
+========================================================= */
 
-async function loadProfile() {
-  if (!token) {
-    $("profileInfo").innerHTML =
-      '<p class="muted">ログインしてください。</p>';
+async function loadHistory() {
+  const list = $("#historyList");
+  if (!list) return;
 
-    $("historyList").innerHTML = "";
-
+  if (!currentUser) {
+    list.innerHTML = "<p>履歴を見るにはログインしてください。</p>";
     return;
   }
 
+  list.innerHTML = "<p>履歴を読み込み中...</p>";
+
   try {
-    const [me, historyData] = await Promise.all([
-      api("me"),
-      api("history")
-    ]);
+    const data = await api("history");
 
-    currentUser = me.user;
+    const history =
+      data.history ??
+      data.records ??
+      data.data?.history ??
+      [];
 
-    renderUser();
-
-    const user = me.user;
-
-    $("profileInfo").innerHTML = `
-      <h3>${esc(user.username)}</h3>
-
-      <div class="grid">
-        <div class="stat">
-          <small>所持コイン</small>
-          <strong>${fmt(user.coins)}</strong>
-        </div>
-
-        <div class="stat">
-          <small>プレイ回数</small>
-          <strong>${fmt(user.games)}</strong>
-        </div>
-
-        <div class="stat">
-          <small>総賭け金</small>
-          <strong>${fmt(user.totalBet)}</strong>
-        </div>
-
-        <div class="stat">
-          <small>総返還額</small>
-          <strong>${fmt(user.totalPayout)}</strong>
-        </div>
-      </div>
-    `;
-
-    const history = historyData.history;
-
-    if (!history.length) {
-      $("historyList").innerHTML =
-        '<p class="muted">まだプレイ履歴がありません。</p>';
-
+    if (!Array.isArray(history) || history.length === 0) {
+      list.innerHTML = "<p>まだ履歴がありません。</p>";
       return;
     }
 
-    $("historyList").innerHTML = `
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>日時</th>
-              <th>ゲーム</th>
-              <th>賭け</th>
-              <th>返還</th>
-              <th>収支</th>
-            </tr>
-          </thead>
+    list.innerHTML = history.map((item) => {
+      const game = item.game ?? item.type ?? "履歴";
+      const amount = Number(
+        item.payout ??
+        item.amount ??
+        item.change ??
+        0
+      );
 
-          <tbody>
-            ${history.map(item => `
-              <tr>
-                <td>
-                  ${esc(
-                    new Date(item.createdAt)
-                      .toLocaleString("ja-JP")
-                  )}
-                </td>
+      const dateValue =
+        item.createdAt ??
+        item.timestamp ??
+        item.date ??
+        "";
 
-                <td>
-                  ${item.game === "roulette"
-                    ? "ルーレット"
-                    : "スロット"}
-                </td>
+      let dateText = String(dateValue);
 
-                <td>${fmt(item.bet)}</td>
-                <td>${fmt(item.payout)}</td>
+      if (dateValue) {
+        const date = new Date(dateValue);
 
-                <td style="color:${
-                  item.net >= 0 ? "#e6cc7d" : "#ef7777"
-                }">
-                  ${item.net > 0 ? "+" : ""}${fmt(item.net)}
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
+        if (!Number.isNaN(date.getTime())) {
+          dateText = date.toLocaleString("ja-JP");
+        }
+      }
+
+      return `
+        <div class="history-item">
+          <div class="history-main">
+            <span class="history-game">${escapeHTML(game)}</span>
+            <span class="history-date">${escapeHTML(dateText)}</span>
+          </div>
+          <div class="history-amount ${amount >= 0 ? "profit" : "loss"}">
+            ${amount >= 0 ? "+" : ""}${formatCoins(amount)}
+          </div>
+        </div>
+      `;
+    }).join("");
+
   } catch (error) {
-    message(error.message, true);
+    list.innerHTML = `
+      <p class="error-message">${escapeHTML(error.message)}</p>
+    `;
   }
 }
 
-/* ---------- Security helper ---------- */
+/* =========================================================
+   21. EVENT LISTENERS
+========================================================= */
 
-function esc(value) {
-  return String(value ?? "").replace(/[&<>"']/g, char => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
+function setupEventListeners() {
+  const accountForm = $("#accountForm");
+
+  if (accountForm) {
+    accountForm.addEventListener("submit", handleAccountSubmit);
+  }
+
+  const logoutButton = $("#logoutButton");
+
+  if (logoutButton) {
+    logoutButton.addEventListener("click", logout);
+  }
+
+  const rouletteButton = $("#rouletteButton");
+
+  if (rouletteButton) {
+    rouletteButton.addEventListener("click", () => play("roulette"));
+  }
+
+  const slotsButton = $("#slotsButton");
+
+  if (slotsButton) {
+    slotsButton.addEventListener("click", () => play("slots"));
+  }
+
+  /*
+    登録・ログイン切り替え用。
+    HTMLに次のボタンがある場合に動作します。
+    data-account-action="login"
+    data-account-action="register"
+  */
+  $$("[data-account-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.accountAction;
+
+      const submitButton = $("#accountSubmit");
+      const form = $("#accountForm");
+
+      if (submitButton) submitButton.dataset.action = action;
+      if (form) form.dataset.action = action;
+
+      if (submitButton) {
+        submitButton.textContent =
+          action === "register" ? "アカウント作成" : "ログイン";
+      }
+    });
+  });
+
+  const friendSearchButton = $("#friendSearchButton");
+
+  if (friendSearchButton) {
+    friendSearchButton.addEventListener("click", searchFriends);
+  }
+
+  const friendQuery = $("#friendQuery");
+
+  if (friendQuery) {
+    friendQuery.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        searchFriends();
+      }
+    });
+  }
+
+  const transferButton = $("#transferButton");
+
+  if (transferButton) {
+    transferButton.addEventListener("click", transferCoins);
+  }
+
+  /*
+    動的に生成されたボタンは親要素側で処理します。
+  */
+  document.addEventListener("click", (event) => {
+    const requestButton = event.target.closest("[data-friend-request]");
+
+    if (requestButton) {
+      sendFriendRequest(requestButton.dataset.friendRequest);
+      return;
+    }
+
+    const respondButton = event.target.closest("[data-friend-respond]");
+
+    if (respondButton) {
+      respondFriendRequest(
+        respondButton.dataset.friendName,
+        respondButton.dataset.friendRespond
+      );
+    }
+  });
 }
 
-/* ---------- Startup ---------- */
+/* =========================================================
+   22. INITIALIZATION
+========================================================= */
 
-async function init() {
-  accountMode("login");
+async function initCasinoRoyale() {
+  setupNavigation();
+  setupEventListeners();
 
-  syncAccountUI();
+  /*
+    ルーレットの数字とポインターを初期化。
+  */
+  setupRouletteWheel();
 
-  await refreshMe();
+  /*
+    アニメーション後に残高を更新するため、
+    初期表示ではAPIの残高を取得します。
+  */
+  await restoreSession();
+
+  /*
+    ログイン状態に応じて必要な情報を表示。
+  */
+  if (currentUser) {
+    renderUser();
+  }
+
+  /*
+    HTML側で最初のページが指定されていなければホームを表示。
+  */
+  const activePage = $(".page.active");
+
+  if (!activePage) {
+    showPage("home");
+  }
 }
 
-init();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initCasinoRoyale);
+} else {
+  initCasinoRoyale();
+}
+
+/* =========================================================
+   END OF CASINO ROYALE app.js
+========================================================= */
