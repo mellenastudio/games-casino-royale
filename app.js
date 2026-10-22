@@ -244,35 +244,53 @@ function updateAuthControls() {
    7. PAGE NAVIGATION
 ========================================================= */
 
+
 function showPage(pageName) {
-  const pageId = `page-${pageName}`;
+  const pageMap = {
+    home: ["page-home", "lobby"],
+    lobby: ["page-home", "lobby"],
+    roulette: ["page-roulette", "roulette"],
+    slots: ["page-slots", "slots"],
+    ranking: ["page-ranking", "ranking"],
+    friends: ["page-friends", "friends"],
+    profile: ["page-profile", "profile"],
+    account: ["page-account", "account"]
+  };
 
-  $$(".page").forEach((page) => {
-    page.classList.toggle("active", page.id === pageId);
-    page.hidden = page.id !== pageId;
-  });
+  const possibleIds = pageMap[pageName] || [`page-${pageName}`];
 
-  $$(".navbtn").forEach((button) => {
-    const active = button.dataset.page === pageName;
+  // ページを切り替える
+  document.querySelectorAll(".page").forEach((page) => {
+    const isTarget = possibleIds.includes(page.id);
 
-    button.classList.toggle("active", active);
+    page.classList.toggle("active", isTarget);
 
-    if (active) {
-      button.setAttribute("aria-current", "page");
+    if (isTarget) {
+      page.hidden = false;
+      page.style.removeProperty("display");
     } else {
-      button.removeAttribute("aria-current");
+      page.hidden = true;
     }
   });
 
+  // ナビゲーションの選択状態
+  document.querySelectorAll(".navbtn").forEach((button) => {
+    const buttonPage = button.dataset.page;
+    const isActive = buttonPage === pageName ||
+      (pageName === "home" && buttonPage === "lobby") ||
+      (pageName === "lobby" && buttonPage === "home");
+
+    button.classList.toggle("active", isActive);
+  });
+
+  // 各ページのデータを読み込む
   if (pageName === "ranking") loadRanking();
   if (pageName === "friends") loadFriends();
   if (pageName === "profile") loadHistory();
 
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
 
 function setupNavigation() {
   $$(".navbtn").forEach((button) => {
