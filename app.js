@@ -1,4 +1,3 @@
-
 /* =========================================
    CASINO ROYALE
    Frontend Application
