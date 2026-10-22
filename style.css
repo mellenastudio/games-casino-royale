@@ -1099,3 +1099,17 @@ select:focus {
   opacity: .75;
   cursor: wait;
 }
+
+
+/* ==========================================
+   PAGE VISIBILITY FIX
+========================================== */
+
+.page.hidden,
+.page[hidden] {
+  display: none !important;
+}
+
+.page.active:not(.hidden):not([hidden]) {
+  display: block;
+}
