@@ -1446,57 +1446,28 @@ async function loadHistory() {
 /* 21. EVENT LISTENERS */
 
 function setupEventListeners() {
-  const accountForm = $("#accountForm");
+  const accountForm = document.querySelector("#accountForm");
 
-  if (accountForm) {
+  if (accountForm && accountForm.dataset.bound !== "true") {
+    accountForm.dataset.bound = "true";
     accountForm.addEventListener("submit", handleAccountSubmit);
   }
 
-  const logoutButton = $("#logoutButton");
+  // HTML側の onclick を使うため、ゲームボタンには
+  // addEventListener を追加しない。
 
-  if (logoutButton) {
-    logoutButton.addEventListener("click", logout);
-  }
+  const friendSearchButton = document.querySelector("#friendSearchButton");
 
-  const rouletteButton = $("#rouletteButton");
-
-  if (rouletteButton) {
-    rouletteButton.addEventListener("click", () => play("roulette"));
-  }
-
-  const slotsButton = $("#slotsButton");
-
-  if (slotsButton) {
-    slotsButton.addEventListener("click", () => play("slots"));
-  }
-
-  // HTML側に data-account-action がある場合の切り替え。
-  $$("[data-account-action]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const action = button.dataset.accountAction;
-
-      const submitButton = $("#accountSubmit");
-      const form = $("#accountForm");
-
-      if (submitButton) submitButton.dataset.action = action;
-      if (form) form.dataset.action = action;
-
-      if (submitButton) {
-        submitButton.textContent =
-          action === "register" ? "アカウント作成" : "ログイン";
-      }
-    });
-  });
-
-  const friendSearchButton = $("#friendSearchButton");
-
-  if (friendSearchButton) {
+  if (friendSearchButton && friendSearchButton.dataset.bound !== "true") {
+    friendSearchButton.dataset.bound = "true";
     friendSearchButton.addEventListener("click", searchFriends);
   }
 
-  const friendQuery = $("#friendQuery");
+  const friendQuery = document.querySelector("#friendQuery");
 
-  if (friendQuery) {
+  if (friendQuery && friendQuery.dataset.bound !== "true") {
+    friendQuery.dataset.bound = "true";
+
     friendQuery.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -1505,30 +1476,38 @@ function setupEventListeners() {
     });
   }
 
-  const transferButton = $("#transferButton");
+  const transferButton = document.querySelector("#transferButton");
 
-  if (transferButton) {
+  if (transferButton && transferButton.dataset.bound !== "true") {
+    transferButton.dataset.bound = "true";
     transferButton.addEventListener("click", transferCoins);
   }
 
-  // 動的に作成されたフレンド関連ボタンを処理。
-  document.addEventListener("click", (event) => {
-    const requestButton = event.target.closest("[data-friend-request]");
+  if (document.documentElement.dataset.friendEventsBound !== "true") {
+    document.documentElement.dataset.friendEventsBound = "true";
 
-    if (requestButton) {
-      sendFriendRequest(requestButton.dataset.friendRequest);
-      return;
-    }
+    document.addEventListener("click", (event) => {
+      const target = event.target;
 
-    const respondButton = event.target.closest("[data-friend-respond]");
+      if (!(target instanceof Element)) return;
 
-    if (respondButton) {
-      respondFriendRequest(
-        respondButton.dataset.friendName,
-        respondButton.dataset.friendRespond
-      );
-    }
-  });
+      const requestButton = target.closest("[data-friend-request]");
+
+      if (requestButton) {
+        sendFriendRequest(requestButton.dataset.friendRequest);
+        return;
+      }
+
+      const respondButton = target.closest("[data-friend-respond]");
+
+      if (respondButton) {
+        respondFriendRequest(
+          respondButton.dataset.friendName,
+          respondButton.dataset.friendRespond
+        );
+      }
+    });
+  }
 }
 
 /* 22. INITIALIZATION */
