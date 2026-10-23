@@ -577,49 +577,15 @@ function rouletteColorJapanese(color) {
   return colors[color] || String(color || "").toUpperCase();
 }
 
-/* =========================================================
-   12. ROULETTE WHEEL SETUP
-========================================================= */
 
 function setupRouletteWheel() {
-  const roulettePage = $("#page-roulette");
-  if (!roulettePage) return null;
-
-  let wheel = roulettePage.querySelector(".wheel");
-
-  if (!wheel) {
-    wheel = $("#rouletteWheel");
-  }
-
+  const wheel = document.querySelector("#rouletteWheel");
   if (!wheel) return null;
 
-  /*
-    盤面を包むラッパーを作成。
-    既に作成済みなら再利用します。
-  */
-  let wrap = wheel.closest(".wheel-wrap");
+  // 中央表示は削除対象にしない
+  const center = wheel.querySelector(".wheel-center");
 
-  if (!wrap) {
-    wrap = document.createElement("div");
-    wrap.className = "wheel-wrap";
-
-    wheel.parentNode.insertBefore(wrap, wheel);
-    wrap.appendChild(wheel);
-  }
-
-  let pointer = wrap.querySelector(".roulette-pointer");
-
-  if (!pointer) {
-    pointer = document.createElement("div");
-    pointer.className = "roulette-pointer";
-    pointer.setAttribute("aria-hidden", "true");
-    wrap.appendChild(pointer);
-  }
-
-  /*
-    数字を作り直す。
-    CSSの盤面デザインはJS側の背景で上書きします。
-  */
+  // 数字ラベルだけを再構築
   wheel.querySelectorAll(".roulette-number").forEach((node) => {
     node.remove();
   });
@@ -629,63 +595,69 @@ function setupRouletteWheel() {
   const stops = ROULETTE_NUMBERS.map((number, index) => {
     const start = index * segment;
     const end = (index + 1) * segment;
-
     const color = rouletteColor(number);
+
     const colorCode =
-      color === "red"
-        ? "#a51d2d"
-        : color === "black"
-          ? "#161616"
-          : "#08764d";
+      color === "red" ? "#a51d2d" :
+      color === "black" ? "#161616" :
+      "#08764d";
 
     return `${colorCode} ${start}deg ${end}deg`;
   });
 
-  wheel.style.background = `conic-gradient(from ${-segment / 2}deg, ${stops.join(",")})`;
+  wheel.style.background =
+    `conic-gradient(from ${-segment / 2}deg, ${stops.join(",")})`;
+
   wheel.style.position = "relative";
   wheel.style.borderRadius = "50%";
   wheel.style.overflow = "hidden";
   wheel.style.willChange = "transform";
 
-  /*
-    盤面の描画サイズを取得。
-    レイアウト前の場合はCSS設定値を基準にします。
-  */
+  // 実際の盤面サイズから数字の配置半径を計算
   const rect = wheel.getBoundingClientRect();
   const size = rect.width || wheel.clientWidth || 270;
   const radius = size * 0.405;
 
   ROULETTE_NUMBERS.forEach((number, index) => {
     const label = document.createElement("span");
+
     label.className = "roulette-number";
     label.textContent = String(number);
+    label.setAttribute("aria-hidden", "true");
 
     const angle = index * segment;
 
-    label.style.transform =
-      `translate(-50%, -50%) rotate(${angle}deg) translateY(-${radius}px) rotate(${-angle}deg)`;
-
-    label.style.position = "absolute";
-    label.style.left = "50%";
-    label.style.top = "50%";
-    label.style.zIndex = "1";
-    label.style.pointerEvents = "none";
+    Object.assign(label.style, {
+      position: "absolute",
+      left: "50%",
+      top: "50%",
+      zIndex: "1",
+      pointerEvents: "none",
+      visibility: "visible",
+      opacity: "1",
+      color: "#fff",
+      fontSize: size < 220 ? "10px" : "12px",
+      fontWeight: "bold",
+      lineHeight: "1",
+      whiteSpace: "nowrap",
+      transform:
+        `translate(-50%, -50%) rotate(${angle}deg) translateY(-${radius}px) rotate(${-angle}deg)`
+    });
 
     wheel.appendChild(label);
   });
 
-  let center = wrap.querySelector(".wheel-center");
-
-  if (!center) {
-    center = wheel.querySelector(".wheel-center");
-  }
-
+  // 中央の数字表示は常に盤面より前面に置く
   if (center) {
-    center.style.position = "absolute";
-    center.style.left = "50%";
-    center.style.top = "50%";
-    center.style.transform = "translate(-50%, -50%)";
-    center.style.zIndex = "2";
+    Object.assign(center.style, {
+      position: "absolute",
+      left: "50%",
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: "2",
+      visibility: "visible",
+      opacity: "1"
+    });
   }
 
   wheel.style.transform = `rotate(${rouletteWheelRotation}deg)`;
