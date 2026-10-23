@@ -2,7 +2,6 @@
    CASINO ROYALE | app.js
    GitHub Pages + Google Apps Script + Google Sheets
 ========================================================= */
-
 "use strict";
 
 /* 1. API SETTINGS */
