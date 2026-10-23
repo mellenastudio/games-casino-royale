@@ -175,8 +175,18 @@ function getUsername(user = currentUser) {
   );
 }
 
+const GUEST_STARTING_COINS = 10000;
+
 function getCoins(user = currentUser) {
-  if (!user) return guestCoins;
+  // ログインしていない場合はゲスト専用コインを使う
+  if (!user) {
+    if (!Number.isFinite(guestCoins) || guestCoins < 0) {
+      guestCoins = GUEST_STARTING_COINS;
+      saveGuestCoins();
+    }
+
+    return guestCoins;
+  }
 
   return Number(
     user.coins ??
