@@ -1557,3 +1557,38 @@ select:focus {
     white-space: normal;
   }
 }
+
+
+/* ==========================================
+   ROULETTE NUMBER VISIBILITY FIX
+========================================== */
+
+#page-roulette #rouletteWheel {
+  isolation: isolate;
+  backface-visibility: hidden;
+}
+
+#page-roulette #rouletteWheel .roulette-number {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #fff !important;
+  text-shadow: 0 1px 3px #000, 0 0 3px #000;
+  font-weight: 800;
+  pointer-events: none;
+  user-select: none;
+  backface-visibility: hidden;
+}
+
+#page-roulette #rouletteWheel .wheel-center {
+  z-index: 2 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  background: #0a0a0a;
+  border: 3px solid #e9c66b;
+}
+
+/* 回転中も数字を表示 */
+#page-roulette #rouletteWheel .roulette-number {
+  transform-style: preserve-3d;
+}
